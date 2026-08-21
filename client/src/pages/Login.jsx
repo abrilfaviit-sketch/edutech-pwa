@@ -1,76 +1,74 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { UserCheck, ShieldAlert, School } from 'lucide-react';
+import api from '../../services/api';// Puente Axios hacia http://localhost:4000/api 
 
 export default function Login({ onLoginSuccess }) {
   // Estado para el rol activo (por defecto 'preceptor')
   const [rolSeleccionado, setRolSeleccionado] = useState('preceptor');
   
-  // Estados para los campos de texto
-  const [nombre, setNombre] = useState('');
-  const [dni, setDni] = useState('');
+  // Estados para los campos de credenciales reales
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   
-  // Estado para manejar alertas y errores
+  // Estado para controlar la carga y peticiones al backend
+  const [cargando, setCargando] = useState(false);
+  
+  // Estado para manejar alertas y errores en pantalla
   const [mensaje, setMensaje] = useState({ texto: '', tipo: '' });
 
-  // Base de datos de prueba integrada
-  const usuariosValidos = {
-    preceptor: [
-      { nombre: "Maria Elena Rodriguez", dni: "20123456" }
-    ],
-    profesor: [
-      { nombre: "Carlos Mendoza", dni: "30123456" },
-      { nombre: "Laura Gómez", dni: "31234567" }
-    ],
-    alumno: [
-      { nombre: "Matias Fernández", dni: "45123456" },
-      { nombre: "Sofia López", dni: "45234567" }
-    ]
-  };
-
-  // Manejar el cambio de rol
+  // Manejar el cambio de rol en la interfaz
   const handleCambioRol = (nuevoRol) => {
     setRolSeleccionado(nuevoRol);
     setMensaje({ texto: '', tipo: '' });
   };
 
-  // Procesar el formulario de Login
-  const handleSubmit = (e) => {
+  // Procesar el formulario de Login enviando los datos al Backend en Node.js
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setMensaje({ texto: '', tipo: '' });
+    setCargando(true);
 
-    const nombreLimpio = nombre.trim().toLowerCase();
-    const dniLimpio = dni.trim().replace(/\D/g, ''); // Deja solo números
+    try {
+      // 1. Enviar petición HTTP POST al servidor Express
+      const respuesta = await api.post('/auth/login', {
+        email: email.trim().toLowerCase(),
+        password: password,
+        rol: rolSeleccionado // Enviamos el rol seleccionado para validación si el backend lo requiere
+      });
 
-    const listaRol = usuariosValidos[rolSeleccionado] || [];
+      // 2. Extraer token y datos del usuario devueltos por el backend
+      const { token, usuario } = respuesta.data;
 
-    // Buscar si coinciden los datos
-    const usuarioEncontrado = listaRol.find(
-      (u) => u.nombre.toLowerCase() === nombreLimpio && u.dni === dniLimpio
-    );
+      // 3. Guardar sesión y JWT en localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('usuario', JSON.stringify(usuario));
 
-    if (usuarioEncontrado) {
-      setMensaje({ texto: '', tipo: '' });
-
-      const datosSesion = {
-        nombre: usuarioEncontrado.nombre,
-        dni: usuarioEncontrado.dni,
-        rol: rolSeleccionado
-      };
-
-      // Guardamos la sesión en el navegador
-      localStorage.setItem('usuarioSesion', JSON.stringify(datosSesion));
-
-      // Si le pasamos la función de éxito, la ejecutamos
-      if (onLoginSuccess) {
-        onLoginSuccess(datosSesion);
-      } else {
-        // Redirección por defecto si usamos rutas de React
-        alert(`¡Bienvenido/a ${usuarioEncontrado.nombre}! Redirigiendo al panel de ${rolSeleccionado.toUpperCase()}...`);
-      }
-    } else {
       setMensaje({
-        texto: `Datos incorrectos para el perfil ${rolSeleccionado.toUpperCase()}.`,
+        texto: `¡Bienvenido/a ${usuario.nombre || 'al sistema'}! Redirigiendo...`,
+        tipo: 'exito'
+      });
+
+      // 4. Ejecutar el callback de éxito o redirigir
+      setTimeout(() => {
+        if (onLoginSuccess) {
+          onLoginSuccess(usuario);
+        } else {
+          window.location.href = '/dashboard';
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      
+      // Capturar el mensaje exacto de error enviado por Express (o error de red)
+      const errorServidor = error.response?.data?.error || 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo.';
+      
+      setMensaje({
+        texto: errorServidor,
         tipo: 'error'
       });
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -87,12 +85,23 @@ export default function Login({ onLoginSuccess }) {
           <p className="text-sm text-slate-500">Seleccioná tu perfil e ingresá tus datos</p>
         </div>
 
-        {/* Selector de Rol */}
-        <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 gap-1">
+        {/* Selector de Rol (Incluye los 4 roles del Backend) */}
+        <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 gap-1 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => handleCambioRol('directora')}
+            className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all ${
+              rolSeleccionado === 'directora'
+                ? 'bg-white text-blue-600 shadow-sm font-bold'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Directora
+          </button>
           <button
             type="button"
             onClick={() => handleCambioRol('preceptor')}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all ${
               rolSeleccionado === 'preceptor'
                 ? 'bg-white text-blue-600 shadow-sm font-bold'
                 : 'text-slate-500 hover:text-slate-700'
@@ -103,7 +112,7 @@ export default function Login({ onLoginSuccess }) {
           <button
             type="button"
             onClick={() => handleCambioRol('profesor')}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all ${
               rolSeleccionado === 'profesor'
                 ? 'bg-white text-blue-600 shadow-sm font-bold'
                 : 'text-slate-500 hover:text-slate-700'
@@ -114,7 +123,7 @@ export default function Login({ onLoginSuccess }) {
           <button
             type="button"
             onClick={() => handleCambioRol('alumno')}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all ${
               rolSeleccionado === 'alumno'
                 ? 'bg-white text-blue-600 shadow-sm font-bold'
                 : 'text-slate-500 hover:text-slate-700'
@@ -124,59 +133,66 @@ export default function Login({ onLoginSuccess }) {
           </button>
         </div>
 
-        {/* Formulario */}
+        {/* Formulario conectado a la API */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="nombre" className="block text-xs font-bold text-slate-700 mb-1.5">
-              Nombre Completo
+            <label htmlFor="email" className="block text-xs font-bold text-slate-700 mb-1.5">
+              Correo Electrónico / Usuario
             </label>
             <input
-              type="text"
-              id="nombre"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Ej: Maria Elena Rodriguez"
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Ej: usuario@escuela.edu.ar"
               required
-              autoComplete="off"
+              autoComplete="username"
               className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
 
           <div>
-            <label htmlFor="dni" className="block text-xs font-bold text-slate-700 mb-1.5">
-              Número de DNI
+            <label htmlFor="password" className="block text-xs font-bold text-slate-700 mb-1.5">
+              Contraseña
             </label>
             <input
-              type="text"
-              id="dni"
-              value={dni}
-              onChange={(e) => setDni(e.target.value)}
-              placeholder="Ej: 20123456 (sin puntos)"
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
-              autoComplete="off"
+              autoComplete="current-password"
               className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
 
-          {/* Cartel de Error o Advertencia */}
+          {/* Cartel de Mensaje de Error / Éxito / Advertencia */}
           {mensaje.texto && (
             <div
               className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-2 ${
                 mensaje.tipo === 'error'
                   ? 'bg-red-50 text-red-600 border border-red-200'
+                  : mensaje.tipo === 'exito'
+                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                   : 'bg-amber-50 text-amber-700 border border-amber-200'
               }`}
             >
-              {mensaje.tipo === 'error' ? <ShieldAlert size={16} /> : <UserCheck size={16} />}
+              {mensaje.tipo === 'error' ? (
+                <ShieldAlert size={16} />
+              ) : (
+                <UserCheck size={16} />
+              )}
               <span>{mensaje.texto}</span>
             </div>
           )}
 
           <button
             type="submit"
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+            disabled={cargando}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/20 transition-all cursor-pointer flex items-center justify-center"
           >
-            Ingresar al Sistema
+            {cargando ? 'Verificando...' : 'Ingresar al Sistema'}
           </button>
         </form>
 
