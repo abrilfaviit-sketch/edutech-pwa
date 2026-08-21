@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { UserCheck, ShieldAlert, School } from 'lucide-react';
-import api from '../../services/api';// Puente Axios hacia http://localhost:4000/api 
+import api from '../services/api';// Puente Axios hacia http://localhost:4000/api 
 
 export default function Login({ onLoginSuccess }) {
   // Estado para el rol activo (por defecto 'preceptor')
