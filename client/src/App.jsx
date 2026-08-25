@@ -26,11 +26,17 @@ export default function App() {
   useEffect(() => {
     const sesionGuardada = localStorage.getItem('usuarioSesion');
     if (sesionGuardada) {
-      setUsuario(JSON.parse(sesionGuardada));
+      try {
+        setUsuario(JSON.parse(sesionGuardada));
+      } catch (error) {
+        localStorage.removeItem('usuarioSesion');
+      }
     }
   }, []);
 
   const handleLoginSuccess = (datosUsuario) => {
+    // Guardamos la sesión activa en el localStorage para mantener el rol al recargar
+    localStorage.setItem('usuarioSesion', JSON.stringify(datosUsuario));
     setUsuario(datosUsuario);
   };
 
@@ -43,11 +49,19 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // Comprobación de roles de Alumno
   if (usuario.rol === 'alumno' || usuario.rol == 1) {
-    return <AlumnoDashboard onCerrarSesion={handleCerrarSesion} />;
+    return (
+      <AlumnoDashboard 
+        usuario={usuario}
+        onLogout={handleCerrarSesion} 
+        onCerrarSesion={handleCerrarSesion} 
+      />
+    );
   }
 
-  if (usuario.rol == 2 || usuario.rol === 'preceptor') {
+  // Comprobación de roles de Preceptor / Directivo
+  if (usuario.rol == 2 || usuario.rol === 'preceptor' || usuario.rol === 'directivo') {
     return (
       <PreceptorDashboard 
         usuario={usuario} 
@@ -59,6 +73,7 @@ export default function App() {
     );
   }
   
+  // Comprobación de roles de Profesor
   if (usuario.rol == 3 || usuario.rol === 'profesor') {
     return (
       <ProfesorDashboard 
