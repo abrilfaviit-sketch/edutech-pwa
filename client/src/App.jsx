@@ -3,11 +3,10 @@ import PreceptorDashboard from './pages/PreceptorDashboard';
 import ProfesorDashboard from './pages/ProfesorDashboard';
 import Login from './pages/Login';
 import AlumnoDashboard from './pages/AlumnoDashboard';
+import DirectivoDashboard from './pages/DirectivoDashboard'; 
 
-// 1. Importamos la data unificada desde tu archivo mock
 import { alumnosData } from './data/alumnosData';
 
-// 2. Cursos disponibles para los filtros
 const todosLosCursos = [
   '1° A', '1° B', '1° C',
   '2° A', '2° B', '2° C',
@@ -19,8 +18,6 @@ const todosLosCursos = [
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
-  
-  // ESTADO GLOBAL DE ALUMNOS (Cargado con la data mock)
   const [alumnosGlobales, setAlumnosGlobales] = useState(alumnosData);
 
   useEffect(() => {
@@ -29,31 +26,31 @@ export default function App() {
       try {
         setUsuario(JSON.parse(sesionGuardada));
       } catch (error) {
-        localStorage.removeItem('usuarioSesion');
+        localStorage.clear();
       }
     }
   }, []);
 
   const handleLoginSuccess = (datosUsuario) => {
-    // Guardamos la sesión activa en el localStorage para mantener el rol al recargar
     localStorage.setItem('usuarioSesion', JSON.stringify(datosUsuario));
     setUsuario(datosUsuario);
   };
 
   const handleCerrarSesion = () => {
-    localStorage.removeItem('usuarioSesion');
+    localStorage.clear();
+    sessionStorage.clear();
     setUsuario(null);
+    window.location.reload();
   };
 
   if (!usuario) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Obtenemos el rol soportando tanto 'rol_id' (base de datos) como 'rol' (string o id)
-  const rolUsuario = usuario.rol_id || usuario.rol;
+  const rolUsuario = String(usuario.rol || usuario.rol_id || '').toLowerCase();
 
-  // Comprobación de roles de Alumno (ID 1 o string 'alumno')
-  if (rolUsuario == 1 || rolUsuario === 'alumno') {
+  // Alumno
+  if (rolUsuario === '1' || rolUsuario === 'alumno') {
     return (
       <AlumnoDashboard 
         usuario={usuario}
@@ -63,25 +60,38 @@ export default function App() {
     );
   }
 
-  // Comprobación de roles de Preceptor / Directivo (ID 2 o string 'preceptor'/'directivo')
-  if (rolUsuario == 2 || rolUsuario === 'preceptor' || rolUsuario === 'directivo') {
+  // Preceptor
+  if (rolUsuario === '2' || rolUsuario === 'preceptor') {
     return (
       <PreceptorDashboard 
         usuario={usuario} 
         onLogout={handleCerrarSesion} 
+        onCerrarSesion={handleCerrarSesion}
         alumnos={alumnosGlobales}
         setAlumnos={setAlumnosGlobales}
         todosLosCursos={todosLosCursos}
       />
     );
   }
+
+  // Directivo / Directora (Bloque completo del componente)
+  if (rolUsuario === '4' || rolUsuario === 'directivo' || rolUsuario === 'directora') {
+    return (
+      <DirectivoDashboard 
+        usuario={usuario} 
+        onLogout={handleCerrarSesion} 
+        onCerrarSesion={handleCerrarSesion}
+      />
+    );
+  }
   
-  // Comprobación de roles de Profesor (ID 3 o string 'profesor')
-  if (rolUsuario == 3 || rolUsuario === 'profesor') {
+  // Profesor
+  if (rolUsuario === '3' || rolUsuario === 'profesor') {
     return (
       <ProfesorDashboard 
         usuario={usuario} 
         onLogout={handleCerrarSesion} 
+        onCerrarSesion={handleCerrarSesion}
         alumnos={alumnosGlobales}
         setAlumnos={setAlumnosGlobales}
       />
@@ -95,12 +105,9 @@ export default function App() {
         <h2 className="text-xl font-bold text-slate-800">
           ¡Hola, {usuario.nombre || 'Usuario'}!
         </h2>
-        <p className="text-sm text-slate-500">
-          Iniciaste sesión con el rol: <strong className="uppercase text-blue-600">{rolUsuario}</strong>.
-        </p>
         <button
           onClick={handleCerrarSesion}
-          className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-all"
+          className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-all cursor-pointer"
         >
           Cerrar Sesión / Volver al Login
         </button>

@@ -2,7 +2,18 @@ import React, { useState } from 'react';
 import { BookOpen, Upload, CheckCircle, Clock, AlertCircle, LogOut } from 'lucide-react';
 import ModalEntrega from '../components/ModalEntrega';
 
-export default function AlumnoDashboard() {
+export default function AlumnoDashboard({ onLogout, onCerrarSesion }) {
+  // Función para cerrar sesión limpiando todo el almacenamiento
+  const handleSalir = () => {
+    if (onLogout) onLogout();
+    else if (onCerrarSesion) onCerrarSesion();
+    else {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.reload();
+    }
+  };
+
   const [materias] = useState([
     { id: 1, nombre: 'Base de Datos I', docente: 'Prof. García', tareasPendientes: 1 },
     { id: 2, nombre: 'Programación Web', docente: 'Prof. Martínez', tareasPendientes: 2 },
@@ -21,17 +32,14 @@ export default function AlumnoDashboard() {
   const handleGuardarEntrega = (datosEntrega) => {
     if (!datosEntrega) return;
 
-    // Actualizamos el estado de la tarea de forma inmutable
     setTareas((prevTareas) =>
       prevTareas.map((t) =>
         t.id === datosEntrega.tareaId ? { ...t, estado: 'entregado' } : t
       )
     );
 
-    // Cerramos el modal primero
     setTareaSeleccionada(null);
 
-    // Mostramos la notificación
     setNotificacion(true);
     setTimeout(() => {
       setNotificacion(false);
@@ -60,8 +68,8 @@ export default function AlumnoDashboard() {
         </div>
         <button 
           type="button"
-          onClick={() => window.location.reload()} 
-          className="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-red-600 transition-all bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-lg"
+          onClick={handleSalir} 
+          className="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-red-600 transition-all bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-lg cursor-pointer"
         >
           <LogOut size={16} />
           Cerrar Sesión
