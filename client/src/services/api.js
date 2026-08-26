@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Creamos una instancia de axios apuntando a tu servidor backend
+// Creamos una instancia de axios apuntando al servidor backend
 const api = axios.create({
   baseURL: 'http://localhost:4000/api'
 });

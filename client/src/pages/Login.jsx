@@ -29,15 +29,44 @@ export default function Login({ onLoginSuccess }) {
 
       const { token, usuario } = respuesta.data;
 
-      // Si la pestaña seleccionada es 'directora', le asignamos el rol 'directora'
-      const rolDefinitivo = rolSeleccionado === 'directora' ? 'directora' : (usuario.rol || usuario.rol_id || rolSeleccionado);
+      // 1. Obtener el rol real devuelto por la base de datos (string o ID numerico)
+      const rolBD = String(usuario.rol || usuario.rol_id || '').toLowerCase();
+      const rolSolapa = rolSeleccionado.toLowerCase();
 
+      // 2. Mapeo de validación por perfil
+      const esDirectivoBD = (rolBD === '4' || rolBD === 'directivo' || rolBD === 'directora');
+      const esPreceptorBD = (rolBD === '2' || rolBD === 'preceptor');
+      const esProfesorBD  = (rolBD === '3' || rolBD === 'profesor');
+      const esAlumnoBD    = (rolBD === '1' || rolBD === 'alumno');
+
+      let esRolValido = false;
+
+      if (rolSolapa === 'directora' || rolSolapa === 'directivo') {
+        esRolValido = esDirectivoBD;
+      } else if (rolSolapa === 'preceptor') {
+        esRolValido = esPreceptorBD;
+      } else if (rolSolapa === 'profesor') {
+        esRolValido = esProfesorBD;
+      } else if (rolSolapa === 'alumno') {
+        esRolValido = esAlumnoBD;
+      }
+
+      // 3. Si no coincide la solapa con el rol real del usuario, frenar acceso
+      if (!esRolValido) {
+        setMensaje({
+          texto: `No podés ingresar como ${rolSeleccionado.toUpperCase()}. Tu perfil registrado no coincide.`,
+          tipo: 'error'
+        });
+        setCargando(false);
+        return;
+      }
+
+      // 4. Si coincide, guardamos datos autenticados
       const usuarioFinal = {
         ...usuario,
-        rol: rolDefinitivo
+        rol: rolBD || rolSolapa
       };
 
-      // Guardamos la sesión con el nombre EXACTO que lee App.jsx
       localStorage.setItem('token', token);
       localStorage.setItem('usuarioSesion', JSON.stringify(usuarioFinal));
 
@@ -83,10 +112,11 @@ export default function Login({ onLoginSuccess }) {
               key={rol}
               type="button"
               onClick={() => handleCambioRol(rol)}
-              className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all capitalize ${rolSeleccionado === rol
+              className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all capitalize ${
+                rolSeleccionado === rol
                   ? 'bg-blue-600 text-white shadow-sm font-bold'
                   : 'text-slate-500 hover:text-slate-700'
-                }`}
+              }`}
             >
               {rol}
             </button>
@@ -128,10 +158,11 @@ export default function Login({ onLoginSuccess }) {
 
           {mensaje.texto && (
             <div
-              className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-2 ${mensaje.tipo === 'error'
+              className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-2 ${
+                mensaje.tipo === 'error'
                   ? 'bg-red-50 text-red-600 border border-red-200'
                   : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                }`}
+              }`}
             >
               {mensaje.tipo === 'error' ? <ShieldAlert size={16} /> : <UserCheck size={16} />}
               <span>{mensaje.texto}</span>
