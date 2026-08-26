@@ -49,8 +49,11 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Comprobación de roles de Alumno
-  if (usuario.rol === 'alumno' || usuario.rol == 1) {
+  // Obtenemos el rol soportando tanto 'rol_id' (base de datos) como 'rol' (string o id)
+  const rolUsuario = usuario.rol_id || usuario.rol;
+
+  // Comprobación de roles de Alumno (ID 1 o string 'alumno')
+  if (rolUsuario == 1 || rolUsuario === 'alumno') {
     return (
       <AlumnoDashboard 
         usuario={usuario}
@@ -60,8 +63,8 @@ export default function App() {
     );
   }
 
-  // Comprobación de roles de Preceptor / Directivo
-  if (usuario.rol == 2 || usuario.rol === 'preceptor' || usuario.rol === 'directivo') {
+  // Comprobación de roles de Preceptor / Directivo (ID 2 o string 'preceptor'/'directivo')
+  if (rolUsuario == 2 || rolUsuario === 'preceptor' || rolUsuario === 'directivo') {
     return (
       <PreceptorDashboard 
         usuario={usuario} 
@@ -73,8 +76,8 @@ export default function App() {
     );
   }
   
-  // Comprobación de roles de Profesor
-  if (usuario.rol == 3 || usuario.rol === 'profesor') {
+  // Comprobación de roles de Profesor (ID 3 o string 'profesor')
+  if (rolUsuario == 3 || rolUsuario === 'profesor') {
     return (
       <ProfesorDashboard 
         usuario={usuario} 
@@ -93,7 +96,7 @@ export default function App() {
           ¡Hola, {usuario.nombre || 'Usuario'}!
         </h2>
         <p className="text-sm text-slate-500">
-          Iniciaste sesión con el rol: <strong className="uppercase text-blue-600">{usuario.rol}</strong>.
+          Iniciaste sesión con el rol: <strong className="uppercase text-blue-600">{rolUsuario}</strong>.
         </p>
         <button
           onClick={handleCerrarSesion}
