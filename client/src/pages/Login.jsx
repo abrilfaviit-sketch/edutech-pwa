@@ -41,7 +41,7 @@ export default function Login({ onLoginSuccess }) {
 
       // 3. Guardar sesión y JWT en localStorage
       localStorage.setItem('token', token);
-      localStorage.setItem('usuario', JSON.stringify(usuario));
+      localStorage.setItem('usuarioSesion', JSON.stringify(usuario));
 
       setMensaje({
         texto: `¡Bienvenido/a ${usuario.nombre || 'al sistema'}! Redirigiendo...`,

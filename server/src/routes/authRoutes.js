@@ -17,7 +17,7 @@ router.get('/perfil', verificarToken, (req, res) => {
 });
 
 // Ruta 2: Solo accesibles por directivos o preceptores (Prueba de Roles)
-router.get('/panel-privado', verificarToken, permitirRoles('directora', 'preceptor'), (req, res) => {
+router.get('/panel-privado', verificarToken, permitirRoles(2, 4, 'preceptor', 'directora'), (req, res) => {
   res.json({
     exito: true,
     mensaje: 'Bienvenido al panel privado de gestión escolar'
