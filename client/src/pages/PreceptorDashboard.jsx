@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlumnos, todosLosCursos }) {
+export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], setAlumnos, todosLosCursos = [] }) {
   // Cursos asignados por defecto al preceptor
   const [misCursos, setMisCursos] = useState(['5° A', '5° B', '5° C']);
   const [configurandoCursos, setConfigurandoCursos] = useState(false);
@@ -9,6 +9,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
   const [searchTerm, setSearchTerm] = useState('');
   const [divisionFilter, setDivisionFilter] = useState('Todos');
   const [turnoFilter, setTurnoFilter] = useState('Todos');
+  const [cursoAsistencia, setCursoAsistencia] = useState('5° A');
 
   // Estados para sanciones
   const [sancionAlumnoId, setSancionAlumnoId] = useState('');
@@ -32,16 +33,24 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
   };
 
   // Alumnos filtrados únicamente por los cursos a cargo del preceptor
-  const alumnosDeMisCursos = (alumnos || []).filter(a => misCursos.includes(a.curso));
+  const alumnosDeMisCursos = alumnos.filter(a => misCursos.includes(a.curso));
 
   // Alumnos filtrados con barra de búsqueda, división y turno
   const alumnosFiltrados = alumnosDeMisCursos.filter(alumno => {
     const coincideBusqueda = alumno.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             alumno.dni.includes(searchTerm);
+                             alumno.dni.toString().includes(searchTerm);
     const coincideDivision = divisionFilter === 'Todos' || alumno.curso === divisionFilter;
     const coincideTurno = turnoFilter === 'Todos' || alumno.turno === turnoFilter;
     return coincideBusqueda && coincideDivision && coincideTurno;
   });
+
+  // Cambiar el estado de asistencia en tiempo real de un alumno
+  const handleEstadoAsistenciaChange = (alumnoId, nuevoEstado) => {
+    if (!setAlumnos) return;
+    setAlumnos(prev =>
+      prev.map(a => (a.id.toString() === alumnoId.toString() ? { ...a, estado: nuevoEstado } : a))
+    );
+  };
 
   const handleGuardarSancion = () => {
     if (!sancionAlumnoId || !sancionMotivo.trim()) {
@@ -49,7 +58,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
       return;
     }
 
-    const alumnoEncontrado = (alumnos || []).find(a => a.id === parseInt(sancionAlumnoId));
+    const alumnoEncontrado = alumnos.find(a => a.id.toString() === sancionAlumnoId.toString());
     const [year, month, day] = sancionFecha.split('-');
 
     const nuevaSancion = {
@@ -68,7 +77,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
     setSancionMotivo('');
   };
 
-  // PANTALLA / MODAL DE CONFIGURACIÓN DE CURSOS
+  // Pantalla / Modal de config de cursos
   if (configurandoCursos) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -76,12 +85,12 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
           <div>
             <h2 className="text-xl font-bold text-slate-800">Seleccioná tus Cursos a Cargo</h2>
             <p className="text-sm text-slate-500 mt-1">
-              Marcá las divisiones de las que sos responsable (mínimo 20 alumnos por división).
+              Marcá las divisiones de las que sos responsable.
             </p>
           </div>
 
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 max-h-80 overflow-y-auto p-1">
-            {(todosLosCursos || []).map((curso) => {
+            {todosLosCursos.map((curso) => {
               const seleccionado = misCursos.includes(curso);
               return (
                 <button
@@ -103,13 +112,16 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
 
           <div className="border-t pt-4 flex justify-between items-center">
             <span className="text-xs text-slate-500">
-              Cursos seleccionados: <strong>{misCursos.length}</strong> ({misCursos.length * 20} alumnos a cargo)
+              Cursos seleccionados: <strong>{misCursos.length}</strong>
             </span>
             <button
               onClick={() => {
                 if (misCursos.length === 0) {
                   alert('Debes seleccionar al menos un curso a cargo.');
                   return;
+                }
+                if (!misCursos.includes(cursoAsistencia)) {
+                  setCursoAsistencia(misCursos[0]);
                 }
                 setConfigurandoCursos(false);
               }}
@@ -201,7 +213,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
 
         {/* Contenido Principal */}
         <main className="flex-1 p-8 overflow-y-auto">
-          {/* VISTA 1: DASHBOARD */}
+          {/* Vista 1: dashboard*/}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               <div>
@@ -238,7 +250,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
             </div>
           )}
 
-          {/* VISTA 2: MIS CURSOS / ALUMNOS */}
+          {/* Vista 2: mis cursos/alumnos*/}
           {activeTab === 'alumnos' && (
             <div className="space-y-6">
               <div>
@@ -254,8 +266,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="px-4 py-2 border rounded-lg text-sm w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                
-                {/* Filtro por Turno */}
+
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-slate-500">Turno:</span>
                   {['Todos', 'Mañana', 'Tarde'].map(turno => (
@@ -269,7 +280,6 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
                   ))}
                 </div>
 
-                {/* Filtro por División */}
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => setDivisionFilter('Todos')}
@@ -331,7 +341,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
             </div>
           )}
 
-          {/* VISTA 3: ASISTENCIA */}
+          {/* Vista 3: asistencia*/}
           {activeTab === 'asistencia' && (
             <div className="space-y-6">
               <div>
@@ -344,8 +354,8 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Curso / División</label>
                     <select 
-                      value={divisionFilter === 'Todos' ? misCursos[0] || '' : divisionFilter}
-                      onChange={(e) => setDivisionFilter(e.target.value)}
+                      value={cursoAsistencia}
+                      onChange={(e) => setCursoAsistencia(e.target.value)}
                       className="px-3 py-2 border rounded-lg text-sm bg-slate-50 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {misCursos.map(c => (
@@ -385,7 +395,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
                   </thead>
                   <tbody className="divide-y">
                     {alumnosDeMisCursos
-                      .filter(a => divisionFilter === 'Todos' ? a.curso === misCursos[0] : a.curso === divisionFilter)
+                      .filter(a => a.curso === cursoAsistencia)
                       .map(a => (
                         <tr key={a.id} className="hover:bg-slate-50">
                           <td className="p-4 font-medium text-slate-800">{a.nombre}</td>
@@ -395,32 +405,50 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
                             </span>
                           </td>
                           <td className="p-4 text-center">
-                            <input type="radio" name={`asistencia-${a.id}`} defaultChecked={a.estado === 'Presente'} className="w-4 h-4 accent-emerald-600" />
+                            <input 
+                              type="radio" 
+                              name={`asistencia-${a.id}`} 
+                              checked={a.estado === 'Presente'} 
+                              onChange={() => handleEstadoAsistenciaChange(a.id, 'Presente')}
+                              className="w-4 h-4 accent-emerald-600" 
+                            />
                           </td>
                           <td className="p-4 text-center">
-                            <input type="radio" name={`asistencia-${a.id}`} defaultChecked={a.estado === 'Ausente'} className="w-4 h-4 accent-red-600" />
+                            <input 
+                              type="radio" 
+                              name={`asistencia-${a.id}`} 
+                              checked={a.estado === 'Ausente'} 
+                              onChange={() => handleEstadoAsistenciaChange(a.id, 'Ausente')}
+                              className="w-4 h-4 accent-red-600" 
+                            />
                           </td>
                           <td className="p-4 text-center">
-                            <input type="radio" name={`asistencia-${a.id}`} defaultChecked={a.estado === 'Tardanza'} className="w-4 h-4 accent-amber-600" />
+                            <input 
+                              type="radio" 
+                              name={`asistencia-${a.id}`} 
+                              checked={a.estado === 'Tardanza'} 
+                              onChange={() => handleEstadoAsistenciaChange(a.id, 'Tardanza')}
+                              className="w-4 h-4 accent-amber-600" 
+                            />
                           </td>
                         </tr>
-                    ))}
+                      ))}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* VISTA 4: PERFIL */}
+          {/* Vista 4: perfil*/}
           {activeTab === 'perfil' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-bold text-slate-800">Mis Datos</h1>
               <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
-                <p><strong>Nombre:</strong> Andrea Cardozo</p>
+                <p><strong>Nombre:</strong> {usuario?.nombre || 'Andrea Cardozo'}</p>
                 <p><strong>Cargo:</strong> Preceptor</p>
                 <p><strong>Cursos Asignados:</strong> {misCursos.join(', ')}</p>
                 <p><strong>Total de Alumnos Administrados:</strong> {alumnosDeMisCursos.length}</p>
-                
+
                 <button
                   onClick={() => setConfigurandoCursos(true)}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition"
@@ -431,7 +459,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos, setAlum
             </div>
           )}
 
-          {/* VISTA 5: SANCIONES */}
+          {/* Vista 5: sanciones*/}
           {activeTab === 'sanciones' && (
             <div className="space-y-6">
               <div>

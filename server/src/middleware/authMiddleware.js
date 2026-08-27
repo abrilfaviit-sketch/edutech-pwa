@@ -5,7 +5,7 @@ const verificarToken = (req, res, next) => {
   // 1. Obtener el token del encabezado (Header) de la petición
   const authHeader = req.headers['authorization'];
   
-  // El header suele venir con el formato: "Bearer <TOKEN>"
+  // El header viene con formato: "Bearer <TOKEN>"
   const token = authHeader && authHeader.split(' ')[1];
 
   // 2. Si no hay token, denegar el acceso
@@ -17,8 +17,7 @@ const verificarToken = (req, res, next) => {
   }
 
   try {
-    // 3. Verificar y decodificar el token usando tu firma secreta
-    // (Asegurate de tener JWT_SECRET definido en tu archivo .env)
+    // 3. Verificar y decodificar el token
     const decodificado = jwt.verify(token, process.env.JWT_SECRET || 'clave_secreta_provisoria');
     
     // 4. Guardar los datos del usuario en el objeto `req` para que las siguientes rutas los usen

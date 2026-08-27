@@ -1,7 +1,7 @@
 // Middleware para restringir el acceso según roles específicos
 const permitirRoles = (...rolesPermitidos) => {
   return (req, res, next) => {
-    // 1. Verificar que req.usuario exista (debe haberse ejecutado verificarToken primero)
+    // 1. Verificar que req.usuario exista
     if (!req.usuario || !req.usuario.rol) {
       return res.status(401).json({ 
         exito: false, 
