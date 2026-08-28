@@ -37,6 +37,9 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
   // Garantiza que siempre haya una materia seleccionada por defecto si existe alguna
   const [materiaSeleccionada, setMateriaSeleccionada] = useState(misMaterias[0] || null);
 
+  // VALIDACIÓN: Comprobar si la materia seleccionada se dicta en el día del sidebar
+  const esDiaDeClase = materiaSeleccionada ? materiaSeleccionada.dias.includes(diaSeleccionado) : false;
+
   const [activeTab, setActiveTab] = useState('inicio');
   const [trimestre, setTrimestre] = useState('1° Trimestre');
   const [mensajeExito, setMensajeExito] = useState('');
@@ -57,7 +60,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
   };
 
   const handleAsistenciaChange = (alumnoId, estado) => {
-    if (!materiaSeleccionada) return;
+    if (!materiaSeleccionada || !esDiaDeClase) return;
     setAsistenciaPorMateria(prev => ({
       ...prev,
       [materiaSeleccionada.id]: {
@@ -608,7 +611,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                 </div>
               </div>
 
-              {/* ÚLTIMO ARREGLO: GRÁFICO DE PROGRESO DE PLANIFICACIÓN */}
+              {/*  ARREGLO: GRÁFICO DE PROGRESO DE PLANIFICACIÓN */}
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
                   <div>
@@ -1239,16 +1242,33 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
               {/* PESTAÑA: ASISTENCIA */}
               {activeTab === 'asistencia' && (
                 <div className="space-y-6">
+                  {/* CARTEL INFORMATIVO SI NO ES DÍA DE CLASE */}
+                  {!esDiaDeClase && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-medium flex items-center gap-3 shadow-sm">
+                      <span className="text-lg">⚠️</span>
+                      <div>
+                        <strong>Toma de asistencia inhabilitada:</strong> La materia <strong>{materiaSeleccionada.nombre}</strong> no se dicta los días <strong>{diaSeleccionado}s</strong>. Seleccioná en el menú lateral un día correspondiente ({materiaSeleccionada.dias.join(', ')}).
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-white p-6 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                       <h2 className="text-base font-bold text-slate-800">Toma de Asistencia de Clase</h2>
-                      <p className="text-xs text-slate-500 mt-1">Materia: <strong>{materiaSeleccionada.nombre} ({materiaSeleccionada.curso})</strong></p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Materia: <strong>{materiaSeleccionada.nombre} ({materiaSeleccionada.curso})</strong> | Día seleccionado: <strong>{diaSeleccionado}</strong>
+                      </p>
                     </div>
 
                     {!mostrarTomaAsistencia ? (
                       <button
+                        disabled={!esDiaDeClase}
                         onClick={() => setMostrarTomaAsistencia(true)}
-                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition transform active:scale-95 flex items-center gap-2"
+                        className={`px-6 py-2.5 text-white font-bold text-sm rounded-xl shadow-md transition transform flex items-center gap-2 ${
+                          !esDiaDeClase
+                            ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                            : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'
+                        }`}
                       >
                         📋 Tomar Asistencia
                       </button>
@@ -1293,9 +1313,12 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                                 <td className="p-4">
                                   <div className="flex justify-center gap-3">
                                     <button
+                                      disabled={!esDiaDeClase}
                                       onClick={() => handleAsistenciaChange(a.id, 'Presente')}
                                       className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition border ${
-                                        estado === 'Presente'
+                                        !esDiaDeClase
+                                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                          : estado === 'Presente'
                                           ? 'bg-emerald-600 text-white border-emerald-600 shadow'
                                           : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                                       }`}
@@ -1303,9 +1326,12 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                                       ✓ Presente
                                     </button>
                                     <button
+                                      disabled={!esDiaDeClase}
                                       onClick={() => handleAsistenciaChange(a.id, 'Ausente')}
                                       className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition border ${
-                                        estado === 'Ausente'
+                                        !esDiaDeClase
+                                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                          : estado === 'Ausente'
                                           ? 'bg-red-600 text-white border-red-600 shadow'
                                           : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                                       }`}
@@ -1323,7 +1349,12 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                   ) : (
                     <div className="bg-white p-10 rounded-xl border text-center text-slate-400 space-y-2">
                       <span className="text-3xl block">📋</span>
-                      <p className="text-xs">Hacé clic en <strong>"Tomar Asistencia"</strong> para desplegar la lista de alumnos de esta materia.</p>
+                      <p className="text-xs">
+                        {esDiaDeClase 
+                          ? <>Hacé clic en <strong>"Tomar Asistencia"</strong> para desplegar la lista de alumnos de esta materia.</>
+                          : <>Seleccioná un día del sidebar en el que se dicte <strong>{materiaSeleccionada.nombre}</strong> para habilitar la toma de asistencia.</>
+                        }
+                      </p>
                     </div>
                   )}
                 </div>
