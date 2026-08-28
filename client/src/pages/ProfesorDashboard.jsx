@@ -4,10 +4,30 @@ import jsPDF from 'jspdf';
 export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], setAlumnos }) {
   const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
-  // MATERIAS ASIGNADAS PREVIAMENTE POR EL DIRECTIVO
-  const [misMaterias] = useState([
-    { id: 1, nombre: 'Programación I', curso: '5° A', turno: 'Mañana', dias: ['Lunes', 'Miércoles'], horario: '07:30 - 09:30' },
-    { id: 2, nombre: 'Bases de Datos', curso: '5° B', turno: 'Tarde', dias: ['Martes', 'Jueves'], horario: '13:30 - 15:30' }
+  // MATERIAS ASIGNADAS PREVIAMENTE POR EL DIRECTIVO (Con avance de programa)
+  const [misMaterias, setMisMaterias] = useState([
+    { 
+      id: 1, 
+      nombre: 'Programación I', 
+      curso: '5° A', 
+      turno: 'Mañana', 
+      dias: ['Lunes', 'Miércoles'], 
+      horario: '07:30 - 09:30',
+      porcentajeProgreso: 65, // % del programa cubierto en el cuatrimestre
+      unidadesTotales: 6,
+      unidadesCompletadas: 4
+    },
+    { 
+      id: 2, 
+      nombre: 'Bases de Datos', 
+      curso: '5° B', 
+      turno: 'Tarde', 
+      dias: ['Martes', 'Jueves'], 
+      horario: '13:30 - 15:30',
+      porcentajeProgreso: 40, // % del programa cubierto en el cuatrimestre
+      unidadesTotales: 5,
+      unidadesCompletadas: 2
+    }
   ]);
 
   // ESTADO DEL PANEL PRINCIPAL
@@ -207,6 +227,37 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
   const totalPendientesCount = Math.max(0, totalPosiblesEntregas - totalEntregadosCount);
   const porcentajeCumplimiento = totalPosiblesEntregas > 0 ? Math.round((totalEntregadosCount / totalPosiblesEntregas) * 100) : 0;
 
+  // ALERTAS ACADÉMICAS
+  const [alertasAcademicas] = useState([
+    {
+      id: 1,
+      tipo: 'inasistencia',
+      nivel: 'critico',
+      titulo: 'Inasistencias Críticas',
+      descripcion: 'El alumno Fernández, Mateo (5° B) alcanzó 5 inasistencias consecutivas.',
+      materia: 'Bases de Datos',
+      fecha: 'Hoy'
+    },
+    {
+      id: 2,
+      tipo: 'entrega',
+      nivel: 'advertencia',
+      titulo: 'Entregas Fuera de Término',
+      descripcion: '3 alumnos entregaron el TP N° 1 después de la fecha límite establecida.',
+      materia: 'Programación I',
+      fecha: 'Ayer'
+    },
+    {
+      id: 3,
+      tipo: 'examen',
+      nivel: 'info',
+      titulo: 'Próxima Mesa de Examen',
+      descripcion: 'Mesa de Regularización de Programación I programada en 5 días (Aula 101).',
+      materia: 'Programación I',
+      fecha: 'En 5 días'
+    }
+  ]);
+
   const handlePublicarTarea = (e) => {
     e.preventDefault();
     if (!materiaSeleccionada) return;
@@ -367,6 +418,11 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     setActiveTab(tab);
   };
 
+  // Promedio General de Avance entre todas las materias
+  const avancePromedioGeneral = Math.round(
+    misMaterias.reduce((acc, m) => acc + m.porcentajeProgreso, 0) / (misMaterias.length || 1)
+  );
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col notranslate" translate="no">
       {/* Header */}
@@ -517,13 +573,14 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                 <p className="text-xs text-indigo-200">Av. del Libertador 8250, Buenos Aires</p>
               </div>
 
+              {/* Tarjetas de Métricas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-slate-500">Mis Materias</p>
                     <p className="text-2xl font-bold text-slate-800 mt-1">{misMaterias.length}</p>
                   </div>
-                  <span className="text-2xl p-3 bg-indigo-50 text-indigo-600 rounded-xl"></span>
+                  <span className="text-2xl p-3 bg-indigo-50 text-indigo-600 rounded-xl">📚</span>
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -531,7 +588,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                     <p className="text-xs font-medium text-slate-500">Trabajos Entregados</p>
                     <p className="text-2xl font-bold text-slate-800 mt-1">185</p>
                   </div>
-                  <span className="text-2xl p-3 bg-emerald-50 text-emerald-600 rounded-xl"></span>
+                  <span className="text-2xl p-3 bg-emerald-50 text-emerald-600 rounded-xl">📩</span>
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -539,7 +596,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                     <p className="text-xs font-medium text-slate-500">Trabajos Pendientes</p>
                     <p className="text-2xl font-bold text-slate-800 mt-1">55</p>
                   </div>
-                  <span className="text-2xl p-3 bg-amber-50 text-amber-600 rounded-xl"></span>
+                  <span className="text-2xl p-3 bg-amber-50 text-amber-600 rounded-xl">⏳</span>
                 </div>
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -547,7 +604,261 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                     <p className="text-xs font-medium text-slate-500">Mesas Activas</p>
                     <p className="text-2xl font-bold text-slate-800 mt-1">{mesasExamen.length}</p>
                   </div>
-                  <span className="text-2xl p-3 bg-indigo-50 text-indigo-600 rounded-xl"></span>
+                  <span className="text-2xl p-3 bg-indigo-50 text-indigo-600 rounded-xl">🎓</span>
+                </div>
+              </div>
+
+              {/* ÚLTIMO ARREGLO: GRÁFICO DE PROGRESO DE PLANIFICACIÓN */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                      📊 Progreso de Planificación Académica
+                    </h3>
+                    <p className="text-xs text-slate-500">Porcentaje del programa de estudio cubierto durante el cuatrimestre</p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl border border-indigo-100 text-xs font-bold">
+                    <span>Avance General:</span>
+                    <span className="text-sm text-indigo-800">{avancePromedioGeneral}%</span>
+                  </div>
+                </div>
+
+                {/* Listado de Progreso por Materia */}
+                <div className="space-y-4">
+                  {misMaterias.map(materia => (
+                    <div key={materia.id} className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-slate-800 text-sm">{materia.nombre}</span>
+                          <span className="text-slate-500 block">
+                            Curso: <strong>{materia.curso}</strong> • Unidades: <strong>{materia.unidadesCompletadas} de {materia.unidadesTotales} dictadas</strong>
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-extrabold text-indigo-600">{materia.porcentajeProgreso}%</span>
+                          <span className="text-[10px] text-slate-400 block font-medium">Cubierto</span>
+                        </div>
+                      </div>
+
+                      {/* Barra de Progreso */}
+                      <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            materia.porcentajeProgreso >= 60 
+                              ? 'bg-gradient-to-r from-indigo-500 to-emerald-500' 
+                              : materia.porcentajeProgreso >= 40 
+                              ? 'bg-gradient-to-r from-amber-400 to-indigo-500' 
+                              : 'bg-gradient-to-r from-rose-400 to-amber-400'
+                          }`}
+                          style={{ width: `${materia.porcentajeProgreso}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => handleTabChange('planificacion')}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1"
+                  >
+                    <span>Gestionar temas y planificaciones →</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* TARJETA DE ALERTAS ACADÉMICAS */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                      ⚠️ Alertas Académicas
+                    </h3>
+                    <p className="text-xs text-slate-500">Notificaciones prioritarias sobre ausentismo, entregas y exámenes</p>
+                  </div>
+                  <span className="text-xs bg-rose-50 text-rose-700 font-bold px-3 py-1 rounded-full border border-rose-200">
+                    {alertasAcademicas.length} Avisos
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {alertasAcademicas.map(alerta => {
+                    const esCritico = alerta.nivel === 'critico';
+                    const esAdvertencia = alerta.nivel === 'advertencia';
+
+                    return (
+                      <div
+                        key={alerta.id}
+                        className={`p-4 rounded-xl border flex flex-col justify-between space-y-2 transition ${
+                          esCritico
+                            ? 'bg-rose-50/50 border-rose-200 hover:border-rose-300'
+                            : esAdvertencia
+                            ? 'bg-amber-50/50 border-amber-200 hover:border-amber-300'
+                            : 'bg-indigo-50/50 border-indigo-200 hover:border-indigo-300'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                              esCritico
+                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                : esAdvertencia
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                            }`}>
+                              {alerta.materia}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">{alerta.fecha}</span>
+                          </div>
+
+                          <h4 className="font-bold text-slate-800 text-xs mt-1">{alerta.titulo}</h4>
+                          <p className="text-[11px] text-slate-600 leading-snug">{alerta.descripcion}</p>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-200/60 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (alerta.tipo === 'inasistencia') handleTabChange('asistencia');
+                              else if (alerta.tipo === 'entrega') handleTabChange('tareas');
+                              else setActiveTab('mesasExamen');
+                            }}
+                            className={`text-[11px] font-bold hover:underline ${
+                              esCritico ? 'text-rose-700' : esAdvertencia ? 'text-amber-700' : 'text-indigo-700'
+                            }`}
+                          >
+                            Ver detalle →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* PRÓXIMAS ENTREGAS A CORREGIR */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                      📋 Próximas Entregas a Corregir
+                    </h3>
+                    <p className="text-xs text-slate-500">Trabajos prácticos con revisiones pendientes por curso</p>
+                  </div>
+                  <span className="text-xs bg-amber-50 text-amber-700 font-bold px-3 py-1 rounded-full border border-amber-200">
+                    55 Pendientes
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  <div className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 px-2 rounded-xl transition">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-xs">TP N° 3: Consultas Avanzadas SQL</span>
+                        <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md border border-indigo-100">
+                          Programación I - 5° A
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>📩 <strong>18/25</strong> alumnos entregaron</span>
+                        <span>📅 Límite: <strong>12 Oct, 23:59 hs</strong></span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleTabChange('tareas')}
+                      className="px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white rounded-xl transition"
+                    >
+                      Revisar Entregas
+                    </button>
+                  </div>
+
+                  <div className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 px-2 rounded-xl transition">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-xs">TP N° 2: Diseños de Modelos Relacionales</span>
+                        <span className="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-0.5 rounded-md border border-purple-100">
+                          Bases de Datos - 5° B
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>📩 <strong>37/40</strong> alumnos entregaron</span>
+                        <span>📅 Límite: <strong>15 Oct, 18:00 hs</strong></span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleTabChange('tareas')}
+                      className="px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white rounded-xl transition"
+                    >
+                      Revisar Entregas
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACCESOS RÁPIDOS */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="border-b border-slate-100 pb-3">
+                  <h3 className="font-bold text-slate-800 text-base">⚡ Accesos Rápidos</h3>
+                  <p className="text-xs text-slate-500">Accedé directamente a las tareas operativas más habituales</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('notas')}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition text-left group flex flex-col justify-between space-y-3 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl p-2.5 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition">
+                        📝
+                      </span>
+                      <span className="text-xs font-bold text-emerald-600 group-hover:translate-x-1 transition">
+                        Ir →
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-xs">Cargar Notas</h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Cargar o editar notas de evaluaciones</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('tareas')}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition text-left group flex flex-col justify-between space-y-3 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl p-2.5 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition">
+                        📚
+                      </span>
+                      <span className="text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition">
+                        Ir →
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-xs">Crear Nueva Tarea</h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Subir TP y consignas de trabajos</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => mostrarNotificacion('Función para publicar avisos seleccionada.')}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-amber-300 hover:bg-amber-50/50 transition text-left group flex flex-col justify-between space-y-3 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl p-2.5 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-600 group-hover:text-white transition">
+                        📢
+                      </span>
+                      <span className="text-xs font-bold text-amber-600 group-hover:translate-x-1 transition">
+                        Ir →
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-xs">Publicar Anuncio / Aviso</h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Enviar novedades al alumnado</p>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1143,6 +1454,23 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
               {/* PESTAÑA: PLANIFICACIÓN DOCENTE */}
               {activeTab === 'planificacion' && (
                 <div className="space-y-8">
+                  {/* Avance particular de la materia en pantalla */}
+                  <div className="bg-white p-6 rounded-xl border shadow-sm space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-800 text-sm">Avance Actual de la Cátedra</span>
+                      <span className="font-extrabold text-indigo-600 text-base">{materiaSeleccionada.porcentajeProgreso}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-600 rounded-full transition-all duration-500"
+                        style={{ width: `${materiaSeleccionada.porcentajeProgreso}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Unidades pedagógicas completadas: <strong>{materiaSeleccionada.unidadesCompletadas}</strong> de <strong>{materiaSeleccionada.unidadesTotales}</strong>
+                    </p>
+                  </div>
+
                   <form onSubmit={handleSubirPlanificacion} className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
                     <div className="border-b pb-3 flex justify-between items-center">
                       <div>
