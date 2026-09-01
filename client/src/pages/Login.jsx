@@ -51,7 +51,7 @@ export default function Login({ onLoginSuccess }) {
         esRolValido = esAlumnoBD;
       }
 
-      // 3. Si no coincide la solapa con el rol real del usuario, frenar acceso
+      // 3. Si no coincide, frenar acceso
       if (!esRolValido) {
         setMensaje({
           texto: `No podés ingresar como ${rolSeleccionado.toUpperCase()}. Tu perfil registrado no coincide.`,

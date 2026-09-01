@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], setAlumnos, todosLosCursos = [] }) {
   // Cursos asignados por defecto al preceptor

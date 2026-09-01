@@ -1,10 +1,26 @@
-import api from './api';
+import api from './api'; 
 
-// Función para obtener la lista de alumnos desde el Backend
 export const obtenerAlumnos = async () => {
   try {
-    const respuesta = await api.get('/alumnos');
-    return respuesta.data.alumnos;
+    // Buscamos el token en 'token' o dentro del objeto 'usuarioSesion'
+    let token = localStorage.getItem('token');
+    
+    if (!token) {
+      const sesion = localStorage.getItem('usuarioSesion');
+      if (sesion) {
+        const parsed = JSON.parse(sesion);
+        token = parsed.token || parsed.jwt;
+      }
+    }
+
+    // Enviamos la petición asegurando la cabecera explícita
+    const respuesta = await api.get('/alumnos', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    return respuesta.data.alumnos || respuesta.data;
   } catch (error) {
     console.error('Error al obtener la lista de alumnos:', error);
     throw error;

@@ -24,4 +24,5 @@ router.get('/panel-privado', verificarToken, permitirRoles(2, 4, 'preceptor', 'd
   });
 });
 
+
 module.exports = router;
