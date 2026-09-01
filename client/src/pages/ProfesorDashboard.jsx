@@ -13,7 +13,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
       turno: 'Mañana', 
       dias: ['Lunes', 'Miércoles'], 
       horario: '07:30 - 09:30',
-      porcentajeProgreso: 65, // % del programa cubierto en el cuatrimestre
+      porcentajeProgreso: 65,
       unidadesTotales: 6,
       unidadesCompletadas: 4
     },
@@ -24,7 +24,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
       turno: 'Tarde', 
       dias: ['Martes', 'Jueves'], 
       horario: '13:30 - 15:30',
-      porcentajeProgreso: 40, // % del programa cubierto en el cuatrimestre
+      porcentajeProgreso: 40,
       unidadesTotales: 5,
       unidadesCompletadas: 2
     }
@@ -34,10 +34,8 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
   const [diaSeleccionado, setDiaSeleccionado] = useState('Lunes');
   const materiasDelDia = misMaterias.filter(m => m.dias.includes(diaSeleccionado));
   
-  // Garantiza que siempre haya una materia seleccionada por defecto si existe alguna
   const [materiaSeleccionada, setMateriaSeleccionada] = useState(misMaterias[0] || null);
 
-  // VALIDACIÓN: Comprobar si la materia seleccionada se dicta en el día del sidebar
   const esDiaDeClase = materiaSeleccionada ? materiaSeleccionada.dias.includes(diaSeleccionado) : false;
 
   const [activeTab, setActiveTab] = useState('inicio');
@@ -46,9 +44,15 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
 
   const [mostrarTomaAsistencia, setMostrarTomaAsistencia] = useState(false);
 
-  // ALUMNOS FILTRADOS SEGÚN LA MATERIA/CURSO
+  // FILTRO POR NOMBRE
+  const [filtroNombre, setFiltroNombre] = useState('');
+
+  // ALUMNOS FILTRADOS SEGÚN LA MATERIA/CURSO Y EL NOMBRE
   const alumnosActuales = materiaSeleccionada 
-    ? alumnos.filter(a => a.curso === materiaSeleccionada.curso)
+    ? alumnos.filter(a => 
+        a.curso === materiaSeleccionada.curso &&
+        a.nombre.toLowerCase().includes(filtroNombre.toLowerCase())
+      )
     : [];
 
   // ASISTENCIA
@@ -81,7 +85,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
 
     alumnosActuales.forEach(a => {
       const estado = getEstadoAsistencia(a.id, a.estado);
-      contenido += `- ${a.nombre} (DNI: ${a.dni}): [${estado.toUpperCase()}]\n`;
+      contenido += `- ${a.nombre}: [${estado.toUpperCase()}]\n`;
     });
 
     const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
@@ -93,15 +97,16 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     URL.revokeObjectURL(url);
   };
 
-  // MESAS DE EXAMEN
+  // MESAS DE EXAMEN (Gestionadas por Directivos, notificadas a Profesores)
   const [mesasExamen, setMesasExamen] = useState([
     {
       id: 1,
       materiaId: 1,
       materiaNombre: 'Programación I',
       curso: '5° A',
-      tipo: 'Regular', // Regular, Previa, Libre
+      tipo: 'Regular',
       estadoInscripcion: 'Abierta',
+      estadoDocente: 'Pendiente', // 'Pendiente', 'Aceptada', 'Rechazada'
       fecha: '2026-07-15',
       hora: '09:00',
       aula: 'Aula 101',
@@ -117,6 +122,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
       curso: '5° B',
       tipo: 'Previa',
       estadoInscripcion: 'Abierta',
+      estadoDocente: 'Aceptada',
       fecha: '2026-07-18',
       hora: '14:00',
       aula: 'Laboratorio 2',
@@ -126,82 +132,12 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     }
   ]);
 
-  const [modalMesa, setModalMesa] = useState({ abierto: false, modo: 'crear', datos: null });
   const [modalInscriptos, setModalInscriptos] = useState({ abierto: false, mesa: null });
 
-  const [formMesa, setFormMesa] = useState({
-    materiaId: misMaterias[0]?.id || 1,
-    tipo: 'Regular',
-    fecha: '',
-    hora: '',
-    aula: '',
-    estadoInscripcion: 'Abierta'
-  });
-
-  const handleAbrirModalCrear = () => {
-    setFormMesa({
-      materiaId: materiaSeleccionada ? materiaSeleccionada.id : (misMaterias[0]?.id || 1),
-      tipo: 'Regular',
-      fecha: '',
-      hora: '',
-      aula: '',
-      estadoInscripcion: 'Abierta'
-    });
-    setModalMesa({ abierto: true, modo: 'crear', datos: null });
-  };
-
-  const handleAbrirModalEditar = (mesa) => {
-    setFormMesa({
-      materiaId: mesa.materiaId,
-      tipo: mesa.tipo,
-      fecha: mesa.fecha,
-      hora: mesa.hora,
-      aula: mesa.aula,
-      estadoInscripcion: mesa.estadoInscripcion
-    });
-    setModalMesa({ abierto: true, modo: 'editar', datos: mesa });
-  };
-
-  const handleGuardarMesa = (e) => {
-    e.preventDefault();
-    const mat = misMaterias.find(m => m.id === parseInt(formMesa.materiaId));
-
-    if (modalMesa.modo === 'crear') {
-      const nuevaMesa = {
-        id: Date.now(),
-        materiaId: mat.id,
-        materiaNombre: mat.nombre,
-        curso: mat.curso,
-        tipo: formMesa.tipo,
-        estadoInscripcion: formMesa.estadoInscripcion,
-        fecha: formMesa.fecha,
-        hora: formMesa.hora,
-        aula: formMesa.aula,
-        inscriptos: []
-      };
-      setMesasExamen(prev => [nuevaMesa, ...prev]);
-      mostrarNotificacion('¡Mesa de examen creada exitosamente!');
-    } else {
-      setMesasExamen(prev => prev.map(m => {
-        if (m.id === modalMesa.datos.id) {
-          return {
-            ...m,
-            materiaId: mat.id,
-            materiaNombre: mat.nombre,
-            curso: mat.curso,
-            tipo: formMesa.tipo,
-            estadoInscripcion: formMesa.estadoInscripcion,
-            fecha: formMesa.fecha,
-            hora: formMesa.hora,
-            aula: formMesa.aula
-          };
-        }
-        return m;
-      }));
-      mostrarNotificacion('¡Mesa de examen actualizada!');
-    }
-
-    setModalMesa({ abierto: false, modo: 'crear', datos: null });
+  // Función para que el docente acepte o rechace la asignación de la mesa
+  const handleCambiarEstadoMesaDocente = (mesaId, nuevoEstado) => {
+    setMesasExamen(prev => prev.map(m => m.id === mesaId ? { ...m, estadoDocente: nuevoEstado } : m));
+    mostrarNotificacion(`Has ${nuevoEstado.toLowerCase()} la convocatoria a la mesa de examen.`);
   };
 
   // TAREAS Y TRABAJOS
@@ -421,7 +357,6 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     setActiveTab(tab);
   };
 
-  // Promedio General de Avance entre todas las materias
   const avancePromedioGeneral = Math.round(
     misMaterias.reduce((acc, m) => acc + m.porcentajeProgreso, 0) / (misMaterias.length || 1)
   );
@@ -604,14 +539,14 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-slate-500">Mesas Activas</p>
+                    <p className="text-xs font-medium text-slate-500">Mesas Asignadas</p>
                     <p className="text-2xl font-bold text-slate-800 mt-1">{mesasExamen.length}</p>
                   </div>
                   <span className="text-2xl p-3 bg-indigo-50 text-indigo-600 rounded-xl">🎓</span>
                 </div>
               </div>
 
-              {/*  ARREGLO: GRÁFICO DE PROGRESO DE PLANIFICACIÓN */}
+              {/* GRÁFICO DE PROGRESO DE PLANIFICACIÓN */}
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
                   <div>
@@ -626,7 +561,6 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                   </div>
                 </div>
 
-                {/* Listado de Progreso por Materia */}
                 <div className="space-y-4">
                   {misMaterias.map(materia => (
                     <div key={materia.id} className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -643,7 +577,6 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                         </div>
                       </div>
 
-                      {/* Barra de Progreso */}
                       <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-700 ${
@@ -933,14 +866,8 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-slate-800">Mesas de Examen</h1>
-                  <p className="text-xs text-slate-500 mt-0.5">Gestión de turnos de examen y listas de inscriptos.</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Consulta de fechas asignadas por dirección y confirmación de asistencia docente.</p>
                 </div>
-                <button
-                  onClick={handleAbrirModalCrear}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2"
-                >
-                  <span>+</span> Crear Mesa de Examen
-                </button>
               </div>
 
               <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 bg-white p-3.5 rounded-xl border border-slate-200">
@@ -975,6 +902,17 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                         }`}>
                           Inscripción {mesa.estadoInscripcion}
                         </span>
+
+                        {/* BADGE DE ESTADO DOCENTE */}
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          mesa.estadoDocente === 'Aceptada'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : mesa.estadoDocente === 'Rechazada'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : 'bg-amber-100 text-amber-800 border-amber-300'
+                        }`}>
+                          Docente: {mesa.estadoDocente}
+                        </span>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 font-medium">
@@ -985,131 +923,49 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {/* ACCIONES DEL DOCENTE */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={() => setModalInscriptos({ abierto: true, mesa })}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition"
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition border border-slate-200"
                       >
                         Ver Inscriptos
                       </button>
-                      <button
-                        onClick={() => handleAbrirModalEditar(mesa)}
-                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition border border-slate-200"
-                      >
-                        ✏️ Editar
-                      </button>
+
+                      {mesa.estadoDocente === 'Pendiente' ? (
+                        <>
+                          <button
+                            onClick={() => handleCambiarEstadoMesaDocente(mesa.id, 'Aceptada')}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition"
+                          >
+                            ✓ Aceptar Mesa
+                          </button>
+                          <button
+                            onClick={() => handleCambiarEstadoMesaDocente(mesa.id, 'Rechazada')}
+                            className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 transition"
+                          >
+                            ✕ Rechazar
+                          </button>
+                        </>
+                      ) : mesa.estadoDocente === 'Aceptada' ? (
+                        <button
+                          onClick={() => handleCambiarEstadoMesaDocente(mesa.id, 'Rechazada')}
+                          className="px-3 py-1.5 text-slate-400 hover:text-rose-600 text-xs font-semibold transition"
+                        >
+                          Cancelar aceptación
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleCambiarEstadoMesaDocente(mesa.id, 'Aceptada')}
+                          className="px-3 py-1.5 text-indigo-600 hover:text-indigo-800 text-xs font-semibold transition"
+                        >
+                          Reconsiderar y Aceptar
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* MODAL CREAR / EDITAR MESA */}
-              {modalMesa.abierto && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                  <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 p-6 space-y-5 animate-fadeIn">
-                    <div className="flex justify-between items-center border-b pb-3">
-                      <h2 className="text-base font-bold text-slate-800">
-                        {modalMesa.modo === 'crear' ? 'Crear Mesa de Examen' : 'Editar Mesa de Examen'}
-                      </h2>
-                      <button onClick={() => setModalMesa({ abierto: false, modo: 'crear', datos: null })} className="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
-                    </div>
-
-                    <form onSubmit={handleGuardarMesa} className="space-y-4 text-xs">
-                      <div>
-                        <label className="block font-semibold text-slate-600 mb-1">Materia *</label>
-                        <select
-                          value={formMesa.materiaId}
-                          onChange={(e) => setFormMesa({ ...formMesa, materiaId: e.target.value })}
-                          className="w-full p-2.5 border rounded-xl bg-slate-50 font-medium text-slate-800"
-                        >
-                          {misMaterias.map(m => (
-                            <option key={m.id} value={m.id}>{m.nombre} - {m.curso}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block font-semibold text-slate-600 mb-1">Tipo de Mesa *</label>
-                          <select
-                            value={formMesa.tipo}
-                            onChange={(e) => setFormMesa({ ...formMesa, tipo: e.target.value })}
-                            className="w-full p-2.5 border rounded-xl bg-slate-50 font-medium text-slate-800"
-                          >
-                            <option value="Regular">Regular</option>
-                            <option value="Previa">Previa</option>
-                            <option value="Libre">Libre</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block font-semibold text-slate-600 mb-1">Estado Inscripción *</label>
-                          <select
-                            value={formMesa.estadoInscripcion}
-                            onChange={(e) => setFormMesa({ ...formMesa, estadoInscripcion: e.target.value })}
-                            className="w-full p-2.5 border rounded-xl bg-slate-50 font-medium text-slate-800"
-                          >
-                            <option value="Abierta">Abierta</option>
-                            <option value="Cerrada">Cerrada</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block font-semibold text-slate-600 mb-1">Fecha *</label>
-                          <input
-                            type="date"
-                            value={formMesa.fecha}
-                            onChange={(e) => setFormMesa({ ...formMesa, fecha: e.target.value })}
-                            className="w-full p-2.5 border rounded-xl bg-slate-50 font-medium text-slate-800"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block font-semibold text-slate-600 mb-1">Hora *</label>
-                          <input
-                            type="time"
-                            value={formMesa.hora}
-                            onChange={(e) => setFormMesa({ ...formMesa, hora: e.target.value })}
-                            className="w-full p-2.5 border rounded-xl bg-slate-50 font-medium text-slate-800"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block font-semibold text-slate-600 mb-1">Aula / Ubicación *</label>
-                        <input
-                          type="text"
-                          placeholder="Ej: Aula 101 o Laboratorio 2"
-                          value={formMesa.aula}
-                          onChange={(e) => setFormMesa({ ...formMesa, aula: e.target.value })}
-                          className="w-full p-2.5 border rounded-xl bg-slate-50 font-medium text-slate-800"
-                          required
-                        />
-                      </div>
-
-                      <div className="flex justify-end gap-2 pt-3 border-t">
-                        <button
-                          type="button"
-                          onClick={() => setModalMesa({ abierto: false, modo: 'crear', datos: null })}
-                          className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-5 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow hover:bg-indigo-700"
-                        >
-                          Guardar Mesa
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
 
               {/* MODAL VER INSCRIPTOS */}
               {modalInscriptos.abierto && (
@@ -1170,6 +1026,28 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                 </div>
               </div>
 
+              {/* BARRA DE FILTRO POR NOMBRE */}
+              {(activeTab === 'notas' || activeTab === 'asistencia') && (
+                <div className="bg-white p-4 rounded-xl border shadow-sm mb-6 flex items-center gap-3">
+                  <span className="text-slate-400 text-sm">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Buscar alumno por nombre..."
+                    value={filtroNombre}
+                    onChange={(e) => setFiltroNombre(e.target.value)}
+                    className="w-full max-w-xs px-3 py-1.5 border rounded-lg text-xs bg-slate-50 focus:outline-none focus:border-indigo-500"
+                  />
+                  {filtroNombre && (
+                    <button 
+                      onClick={() => setFiltroNombre('')}
+                      className="text-xs text-slate-400 hover:text-slate-600 font-bold"
+                    >
+                      ✕ Limpiar
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* PESTAÑA: CALIFICACIONES */}
               {activeTab === 'notas' && (
                 <div className="space-y-6">
@@ -1229,7 +1107,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                         ) : (
                           <tr>
                             <td colSpan="7" className="p-6 text-center text-xs text-slate-400">
-                              No se encontraron alumnos inscriptos en el curso <strong>{materiaSeleccionada.curso}</strong>.
+                              No se encontraron alumnos para los criterios seleccionados.
                             </td>
                           </tr>
                         )}
@@ -1299,50 +1177,56 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
                         <thead className="bg-slate-50 border-b text-xs uppercase text-slate-500 font-semibold">
                           <tr>
                             <th className="p-4">Alumno</th>
-                            <th className="p-4">DNI</th>
                             <th className="p-4 text-center">Estado de Asistencia</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {alumnosActuales.map(a => {
-                            const estado = getEstadoAsistencia(a.id, a.estado);
-                            return (
-                              <tr key={a.id} className="hover:bg-slate-50">
-                                <td className="p-4 font-medium text-slate-800">{a.nombre}</td>
-                                <td className="p-4 text-xs text-slate-500">{a.dni}</td>
-                                <td className="p-4">
-                                  <div className="flex justify-center gap-3">
-                                    <button
-                                      disabled={!esDiaDeClase}
-                                      onClick={() => handleAsistenciaChange(a.id, 'Presente')}
-                                      className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition border ${
-                                        !esDiaDeClase
-                                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                          : estado === 'Presente'
-                                          ? 'bg-emerald-600 text-white border-emerald-600 shadow'
-                                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                      }`}
-                                    >
-                                      ✓ Presente
-                                    </button>
-                                    <button
-                                      disabled={!esDiaDeClase}
-                                      onClick={() => handleAsistenciaChange(a.id, 'Ausente')}
-                                      className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition border ${
-                                        !esDiaDeClase
-                                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                          : estado === 'Ausente'
-                                          ? 'bg-red-600 text-white border-red-600 shadow'
-                                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                      }`}
-                                    >
-                                      ✕ Ausente
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                          {alumnosActuales.length > 0 ? (
+                            alumnosActuales.map(a => {
+                              const estado = getEstadoAsistencia(a.id, a.estado);
+                              return (
+                                <tr key={a.id} className="hover:bg-slate-50">
+                                  <td className="p-4 font-medium text-slate-800">{a.nombre}</td>
+                                  <td className="p-4">
+                                    <div className="flex justify-center gap-3">
+                                      <button
+                                        disabled={!esDiaDeClase}
+                                        onClick={() => handleAsistenciaChange(a.id, 'Presente')}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                                          !esDiaDeClase
+                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                            : estado === 'Presente'
+                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow'
+                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        ✓ Presente
+                                      </button>
+                                      <button
+                                        disabled={!esDiaDeClase}
+                                        onClick={() => handleAsistenciaChange(a.id, 'Ausente')}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                                          !esDiaDeClase
+                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                            : estado === 'Ausente'
+                                            ? 'bg-red-600 text-white border-red-600 shadow'
+                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        ✕ Ausente
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan="2" className="p-6 text-center text-xs text-slate-400">
+                                No se encontraron alumnos para los criterios seleccionados.
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1485,7 +1369,6 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
               {/* PESTAÑA: PLANIFICACIÓN DOCENTE */}
               {activeTab === 'planificacion' && (
                 <div className="space-y-8">
-                  {/* Avance particular de la materia en pantalla */}
                   <div className="bg-white p-6 rounded-xl border shadow-sm space-y-2">
                     <div className="flex justify-between items-center text-xs">
                       <span className="font-bold text-slate-800 text-sm">Avance Actual de la Cátedra</span>
