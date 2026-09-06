@@ -26,31 +26,42 @@ exports.registrar = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error('Error en registrar:', error);
     res.status(500).json({ error: 'Error al registrar el usuario' });
   }
 };
 
 // Login de usuario
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, usuario, password } = req.body;
+  const identificador = email || usuario;
+
+  if (!identificador || !password) {
+    return res.status(400).json({ error: 'Por favor ingresá usuario/email y contraseña' });
+  }
 
   try {
-    const result = await db.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    const result = await db.query('SELECT * FROM usuarios WHERE email = $1', [identificador]);
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    const usuario = result.rows[0];
+    const usuarioEncontrado = result.rows[0];
+    const hashGuardado = usuarioEncontrado.password_hash || usuarioEncontrado.password;
 
-    const passwordValida = await bcrypt.compare(password, usuario.password_hash);
+    if (!hashGuardado) {
+      return res.status(500).json({ error: 'El usuario no posee una contraseña configurada' });
+    }
+
+    const passwordValida = await bcrypt.compare(password, hashGuardado);
     if (!passwordValida) {
       return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
 
     const token = jwt.sign(
-      { id: usuario.id, rol_id: usuario.rol_id },
-      process.env.JWT_SECRET,
+      { id: usuarioEncontrado.id, rol_id: usuarioEncontrado.rol_id },
+      process.env.JWT_SECRET || 'secreto_super_seguro',
       { expiresIn: '12h' }
     );
 
@@ -58,16 +69,19 @@ exports.login = async (req, res) => {
       mensaje: 'Login exitoso',
       token,
       usuario: {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido,
-        email: usuario.email,
-        rol_id: usuario.rol_id
+        id: usuarioEncontrado.id,
+        nombre: usuarioEncontrado.nombre,
+        apellido: usuarioEncontrado.apellido,
+        email: usuarioEncontrado.email,
+        rol_id: usuarioEncontrado.rol_id
       }
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error en el servidor al iniciar sesión' });
+    // ENVIAMOS EL MENSAJE REAL DIRECTAMENTE AL NAVEGADOR
+    return res.status(500).json({ 
+      error: 'Error interno en login', 
+      detalle: error.message 
+    });
   }
 };

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { UserCheck, ShieldAlert, School } from 'lucide-react';
 import api from '../services/api';
@@ -27,18 +28,26 @@ export default function Login({ onLoginSuccess }) {
         rol: rolSeleccionado
       });
 
-      const { token, usuario } = respuesta.data;
+      // 1. Aseguramos extraer el token según cómo responda el backend
+      const token = respuesta.data.token || respuesta.data.jwt || respuesta.data.accessToken;
+      const usuario = respuesta.data.usuario || respuesta.data.user || {};
 
-      // 1. Obtener el rol real devuelto por la base de datos (string o ID numerico)
+      // 🔍 LOGS DE CONTROL
+      // console.log("DATOS DEL USUARIO:", usuario);
+
+      if (!token) {
+        throw new Error("El backend respondió bien pero no devolvió ningún token válido.");
+      }
+
+      // 2. Obtener el rol devuelto por la base de datos
       const rolBD = String(usuario.rol || usuario.rol_id || '').toLowerCase();
       const rolSolapa = rolSeleccionado.toLowerCase();
 
-      // 2. Mapeo de validación por perfil
+      // 3. Mapeo de validación por perfil de la Base de Datos
       const esDirectivoBD = (rolBD === '4' || rolBD === 'directivo' || rolBD === 'directora');
       const esPreceptorBD = (rolBD === '2' || rolBD === 'preceptor');
-      const esProfesorBD  = (rolBD === '3' || rolBD === 'profesor');
-      const esAlumnoBD    = (rolBD === '1' || rolBD === 'alumno');
-
+      const esProfesorBD = (rolBD === '3' || rolBD === 'profesor'); // 3 ES PROFESOR
+      const esAlumnoBD = (rolBD === '1' || rolBD === 'alumno');   // 1 ES ALUMNO
       let esRolValido = false;
 
       if (rolSolapa === 'directora' || rolSolapa === 'directivo') {
@@ -51,7 +60,7 @@ export default function Login({ onLoginSuccess }) {
         esRolValido = esAlumnoBD;
       }
 
-      // 3. Si no coincide la solapa con el rol real del usuario, frenar acceso
+      // 4. Si la solapa no coincide con el rol de la BD, rechazar acceso
       if (!esRolValido) {
         setMensaje({
           texto: `No podés ingresar como ${rolSeleccionado.toUpperCase()}. Tu perfil registrado no coincide.`,
@@ -61,7 +70,7 @@ export default function Login({ onLoginSuccess }) {
         return;
       }
 
-      // 4. Si coincide, guardamos datos autenticados
+      // 5. Guardar el token y la sesión
       const usuarioFinal = {
         ...usuario,
         rol: rolBD || rolSolapa
@@ -83,7 +92,7 @@ export default function Login({ onLoginSuccess }) {
 
     } catch (error) {
       console.error('Error al iniciar sesión:', error);
-      const errorServidor = error.response?.data?.error || 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo.';
+      const errorServidor = error.response?.data?.error || error.message || 'No se pudo conectar con el servidor.';
 
       setMensaje({
         texto: errorServidor,
@@ -112,11 +121,10 @@ export default function Login({ onLoginSuccess }) {
               key={rol}
               type="button"
               onClick={() => handleCambioRol(rol)}
-              className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all capitalize ${
-                rolSeleccionado === rol
-                  ? 'bg-blue-600 text-white shadow-sm font-bold'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className={`flex-1 py-2 px-1 text-xs font-semibold rounded-lg transition-all capitalize ${rolSeleccionado === rol
+                ? 'bg-blue-600 text-white shadow-sm font-bold'
+                : 'text-slate-500 hover:text-slate-700'
+                }`}
             >
               {rol}
             </button>
@@ -158,11 +166,10 @@ export default function Login({ onLoginSuccess }) {
 
           {mensaje.texto && (
             <div
-              className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-2 ${
-                mensaje.tipo === 'error'
-                  ? 'bg-red-50 text-red-600 border border-red-200'
-                  : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-              }`}
+              className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-2 ${mensaje.tipo === 'error'
+                ? 'bg-red-50 text-red-600 border border-red-200'
+                : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                }`}
             >
               {mensaje.tipo === 'error' ? <ShieldAlert size={16} /> : <UserCheck size={16} />}
               <span>{mensaje.texto}</span>

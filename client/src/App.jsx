@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PreceptorDashboard from './pages/PreceptorDashboard';
 import ProfesorDashboard from './pages/ProfesorDashboard';
 import Login from './pages/Login';
 import AlumnoDashboard from './pages/AlumnoDashboard';
 import DirectivoDashboard from './pages/DirectivoDashboard'; 
-
-import { alumnosData } from './data/alumnosData';
+import { obtenerAlumnos } from './services/alumnosService.js';
 
 const todosLosCursos = [
   '1° A', '1° B', '1° C',
@@ -18,8 +17,10 @@ const todosLosCursos = [
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
-  const [alumnosGlobales, setAlumnosGlobales] = useState(alumnosData);
+  const [alumnosGlobales, setAlumnosGlobales] = useState([]);
+  const [cargando, setCargando] = useState(false);
 
+  // Recupera la sesión guardada al recargar la página 
   useEffect(() => {
     const sesionGuardada = localStorage.getItem('usuarioSesion');
     if (sesionGuardada) {
@@ -30,6 +31,32 @@ export default function App() {
       }
     }
   }, []);
+
+  // Carga los alumnos desde el Backend SOLO si el rol no es Alumno
+  useEffect(() => {
+    if (usuario) {
+      const rolActual = String(usuario.rol || usuario.rol_id || '').toLowerCase();
+      
+      // Si el usuario logueado es Alumno, evitamos la petición al backend
+      if (rolActual === '1' || rolActual === 'alumno') {
+        return;
+      }
+
+      const cargarAlumnos = async () => {
+        try {
+          setCargando(true);
+          const datos = await obtenerAlumnos();
+          setAlumnosGlobales(datos || []);
+        } catch (error) {
+          console.error("Error al traer los alumnos del backend:", error);
+        } finally {
+          setCargando(false);
+        }
+      };
+      
+      cargarAlumnos();
+    }
+  }, [usuario]);
 
   const handleLoginSuccess = (datosUsuario) => {
     localStorage.setItem('usuarioSesion', JSON.stringify(datosUsuario));
@@ -43,8 +70,18 @@ export default function App() {
     window.location.reload();
   };
 
+  // Si no hay usuario logueado, muestra el Login
   if (!usuario) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Si está trayendo la lista de alumnos de la BD, muestra la pantalla de carga
+  if (cargando) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-700 font-bold">
+        Cargando datos del sistema...
+      </div>
+    );
   }
 
   const rolUsuario = String(usuario.rol || usuario.rol_id || '').toLowerCase();
@@ -74,7 +111,7 @@ export default function App() {
     );
   }
 
-  // Directivo / Directora (Bloque completo del componente)
+  // Directivo / Directora
   if (rolUsuario === '4' || rolUsuario === 'directivo' || rolUsuario === 'directora') {
     return (
       <DirectivoDashboard 
@@ -84,7 +121,7 @@ export default function App() {
       />
     );
   }
-  
+
   // Profesor
   if (rolUsuario === '3' || rolUsuario === 'profesor') {
     return (

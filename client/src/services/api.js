@@ -1,17 +1,21 @@
 import axios from 'axios';
 
-// Creamos una instancia de axios apuntando al servidor backend
 const api = axios.create({
   baseURL: 'http://localhost:4000/api'
 });
 
-// Interceptor para enviar el token JWT automáticamente en cada petición si existe
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Interceptor para agregar el token dinámicamente en CADA petición
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
 export default api;
