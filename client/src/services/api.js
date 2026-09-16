@@ -4,7 +4,7 @@ const api = axios.create({
   baseURL: 'http://localhost:4000/api'
 });
 
-// Interceptor para agregar el token dinámicamente en CADA petición
+// Interceptor de Solicitud, inyecta el JWT en cada petición
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -13,7 +13,22 @@ api.interceptors.request.use(
     }
     return config;
   },
+  (error) => Promise.reject(error)
+);
+
+// Interceptor de respuesta: Manejo de expiración (401)
+api.interceptors.response.use(
+  (response) => response,
   (error) => {
+    if (error.response && error.response.status === 401) {
+      // quitar únicamente la credencial
+      localStorage.removeItem('token');
+      
+      // Redirigir notificando la expiración sin refrescar si ya estamos en /login
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login?sesionExpirada=true';
+      }
+    }
     return Promise.reject(error);
   }
 );

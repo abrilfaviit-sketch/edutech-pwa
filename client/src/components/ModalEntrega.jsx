@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, UploadCloud, FileCheck } from 'lucide-react';
 
 export default function ModalEntrega({ tarea, onClose, onGuardar }) {

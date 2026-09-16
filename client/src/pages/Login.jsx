@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { UserCheck, ShieldAlert, School } from 'lucide-react';
 import api from '../services/api';
+import { sincronizarBorradores } from '../services/syncService.js';
 
 export default function Login({ onLoginSuccess }) {
   const [rolSeleccionado, setRolSeleccionado] = useState('preceptor');
@@ -28,22 +29,22 @@ export default function Login({ onLoginSuccess }) {
         rol: rolSeleccionado
       });
 
-      // 1. Aseguramos extraer el token según cómo responda el backend
+      //Asegura extraer el token según cómo responda el backend
       const token = respuesta.data.token || respuesta.data.jwt || respuesta.data.accessToken;
       const usuario = respuesta.data.usuario || respuesta.data.user || {};
 
-      // 🔍 LOGS DE CONTROL
+      // LOGS DE CONTROL
       // console.log("DATOS DEL USUARIO:", usuario);
 
       if (!token) {
         throw new Error("El backend respondió bien pero no devolvió ningún token válido.");
       }
 
-      // 2. Obtener el rol devuelto por la base de datos
+      // Obtener el rol devuelto por la base de datos
       const rolBD = String(usuario.rol || usuario.rol_id || '').toLowerCase();
       const rolSolapa = rolSeleccionado.toLowerCase();
 
-      // 3. Mapeo de validación por perfil de la Base de Datos
+      //Mapeo de validación por perfil de la Base de Datos
       const esDirectivoBD = (rolBD === '4' || rolBD === 'directivo' || rolBD === 'directora');
       const esPreceptorBD = (rolBD === '2' || rolBD === 'preceptor');
       const esProfesorBD = (rolBD === '3' || rolBD === 'profesor'); // 3 ES PROFESOR
@@ -60,7 +61,7 @@ export default function Login({ onLoginSuccess }) {
         esRolValido = esAlumnoBD;
       }
 
-      // 4. Si la solapa no coincide con el rol de la BD, rechazar acceso
+      // Si la solapa no coincide con el rol de la BD, rechazar acceso
       if (!esRolValido) {
         setMensaje({
           texto: `No podés ingresar como ${rolSeleccionado.toUpperCase()}. Tu perfil registrado no coincide.`,
@@ -70,7 +71,7 @@ export default function Login({ onLoginSuccess }) {
         return;
       }
 
-      // 5. Guardar el token y la sesión
+      // Guardar el token y la sesión
       const usuarioFinal = {
         ...usuario,
         rol: rolBD || rolSolapa
@@ -78,6 +79,13 @@ export default function Login({ onLoginSuccess }) {
 
       localStorage.setItem('token', token);
       localStorage.setItem('usuarioSesion', JSON.stringify(usuarioFinal));
+
+      try {
+        await sincronizarBorradores();
+      } catch (errSync) {
+        console.warn('No se pudieron sincronizar los borradores automáticamente:', errSync);
+      }
+
 
       setMensaje({
         texto: `¡Bienvenido/a ${usuarioFinal.nombre || 'al sistema'}! Redirigiendo...`,

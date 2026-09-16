@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BookOpen, Upload, CheckCircle, Clock, AlertCircle, LogOut } from 'lucide-react';
 import ModalEntrega from '../components/ModalEntrega';
 

@@ -6,6 +6,7 @@ import AlumnoDashboard from './pages/AlumnoDashboard';
 import DirectivoDashboard from './pages/DirectivoDashboard'; 
 import { obtenerAlumnos } from './services/alumnosService.js';
 
+
 const todosLosCursos = [
   '1° A', '1° B', '1° C',
   '2° A', '2° B', '2° C',
@@ -16,21 +17,22 @@ const todosLosCursos = [
 ];
 
 export default function App() {
-  const [usuario, setUsuario] = useState(null);
   const [alumnosGlobales, setAlumnosGlobales] = useState([]);
   const [cargando, setCargando] = useState(false);
 
   // Recupera la sesión guardada al recargar la página 
-  useEffect(() => {
-    const sesionGuardada = localStorage.getItem('usuarioSesion');
-    if (sesionGuardada) {
-      try {
-        setUsuario(JSON.parse(sesionGuardada));
-      } catch (error) {
-        localStorage.clear();
-      }
+ const [usuario, setUsuario] = useState(() => {
+  const sesionGuardada = localStorage.getItem('usuarioSesion');
+  if (sesionGuardada) {
+    try {
+      return JSON.parse(sesionGuardada);
+    } catch {
+      localStorage.removeItem('usuarioSesion');
+      return null;
     }
-  }, []);
+  }
+  return null;
+});
 
   // Carga los alumnos desde el Backend SOLO si el rol no es Alumno
   useEffect(() => {
@@ -64,11 +66,18 @@ export default function App() {
   };
 
   const handleCerrarSesion = () => {
-    localStorage.clear();
-    sessionStorage.clear();
-    setUsuario(null);
-    window.location.reload();
-  };
+  // Elimina solo los datos de autenticación y sesión
+  localStorage.removeItem('token');
+  localStorage.removeItem('usuarioSesion');
+  
+  // Limpia la sesión del navegador
+  sessionStorage.clear();
+  
+  // Resetea el estado
+  setUsuario(null);
+  
+  // peroo 'borrador_asistencias' se conserva intacto en localStorage así evitamos pérdidad 
+};
 
   // Si no hay usuario logueado, muestra el Login
   if (!usuario) {

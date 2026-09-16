@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { School, LogOut, Users, BookOpen, Settings } from 'lucide-react';
+import { useState } from 'react';
+import { School, LogOut, Users, BookOpen } from 'lucide-react';
+//Settings despues de BookOpen
 
 export default function DirectivoDashboard({ usuario, onLogout, onCerrarSesion }) {
   const [activeTab, setActiveTab] = useState('inicio');
