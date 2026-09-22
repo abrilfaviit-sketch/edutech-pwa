@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      devOptions: {
+        enabled: true
+      },
       manifest: {
         name: 'EduTech - Plataforma Educativa',
         short_name: 'EduTech',
@@ -17,18 +20,27 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
+            src: '/pwa-192x192.png',
+            sizes: '96x92',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
+            src: '/pwa-512x512.png',
+            sizes: '200x200',
             type: 'image/png',
-            purpose: 'any maskable'
           }
         ]
       }
     })
-  ]
+  ],
+  server: {
+    host: 'localhost',
+    port: 5173,
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173,
+      clientPort: 5173,
+    },
+  },
 });
