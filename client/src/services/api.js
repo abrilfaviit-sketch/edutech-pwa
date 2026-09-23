@@ -1,10 +1,16 @@
 import axios from 'axios';
 
+// 1. Uso de variables de entorno para producción/desarrollo
+const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:4000/api';
+
 const api = axios.create({
-  baseURL: 'http://localhost:4000/api'
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-// Interceptor de Solicitud, inyecta el JWT en cada petición
+// Interceptor de Solicitud: Inyecta el JWT
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -16,16 +22,21 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor de respuesta: Manejo de expiración (401)
+// Control para evitar loop de redirecciones cuando fallan varias peticiones simultáneas
+let isRedirecting = false;
+
+// Interceptor de Respuesta: Manejo de 401 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // quitar únicamente la credencial
+      // Limpiar credenciales y datos del usuario
       localStorage.removeItem('token');
-      
-      // Redirigir notificando la expiración sin refrescar si ya estamos en /login
-      if (window.location.pathname !== '/login') {
+      localStorage.removeItem('usuario');
+
+      // Redirigir únicamente si no estamos en /login y no hay una redirección en marcha
+      if (window.location.pathname !== '/login' && !isRedirecting) {
+        isRedirecting = true;
         window.location.href = '/login?sesionExpirada=true';
       }
     }

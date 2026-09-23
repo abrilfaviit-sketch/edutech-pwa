@@ -7,4 +7,4 @@ router.get('/', verificarToken, (req, res) => {
   res.json({ exito: true, mensaje: 'Ruta de asistencias activa' });
 });
 
-module.exports = router;
+export default router;

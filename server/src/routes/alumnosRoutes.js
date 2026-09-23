@@ -7,4 +7,4 @@ const { obtenerAlumnos } = require('../controllers/alumnosController.js');
 // Ruta protegida: trae la lista real de alumnos desde Supabase
 router.get('/', verificarToken, permitirRoles(2, 3, 4, 'preceptor', 'profesor', 'directora'), obtenerAlumnos);
 
-module.exports = router;
+export default router;

@@ -7,18 +7,15 @@ exports.obtenerAlumnos = async (req, res) => {
     const query = 'SELECT id, nombre, apellido, email, rol_id FROM usuarios WHERE rol_id = $1';
     const { rows: alumnos } = await pool.query(query, [1]);
 
-    return res.json({
-      exito: true,
-      alumnos
-    });
+    return res.json(alumnos);
 
-  } catch (err) {
-    console.error('CRASH EN OBTENER ALUMNOS:', err);
+  } catch (error) {
+    console.error('CRASH EN OBTENER ALUMNOS:', error);
 
     return res.status(500).json({ 
       exito: false, 
       mensaje: 'Error interno del servidor',
-      errorDetalle: err.message || err 
+      errorDetalle: error.message || error 
     });
   }
 };

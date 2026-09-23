@@ -1,23 +1,31 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
-// 1. Importar rutas
-const authRoutes = require('./routes/authRoutes');
-const alumnosRoutes = require('./routes/alumnosRoutes');
-const asistenciasRoutes = require('./routes/asistenciasRoutes');
-const notasRoutes = require('./routes/notasRoutes');
+// Importar rutas
+import authRoutes from './routes/authRoutes.js';
+import alumnosRoutes from './routes/alumnosRoutes.js';
+import asistenciasRoutes from './routes/asistenciasRoutes.js';
+import notasRoutes from './routes/notasRoutes.js';
+import preceptorRoutes from './routes/preceptorRoutes.js';
+
+dotenv.config();
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
+
 app.use(express.json());
 
-// 2. Conectar endpoints
+// Conectar endpoints
 app.use('/api/auth', authRoutes);
 app.use('/api/alumnos', alumnosRoutes);
 app.use('/api/asistencias', asistenciasRoutes);
 app.use('/api/notas', notasRoutes);
+app.use('/api/preceptor', preceptorRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

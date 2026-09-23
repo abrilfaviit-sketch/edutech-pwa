@@ -1,7 +1,11 @@
-require('dotenv').config();
-const { Pool } = require('pg');
+import dotenv from 'dotenv';
+import pg from 'pg';
 
-const pool = new Pool({
+dotenv.config();
+
+const { Pool } = pg;
+
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
@@ -22,4 +26,4 @@ pool.on('error', (err) => {
   console.error('Error inesperado en el pool de PostgreSQL:', err.message);
 });
 
-module.exports = pool;
+export default pool;

@@ -6,4 +6,4 @@ router.get('/', verificarToken, (req, res) => {
   res.json({ exito: true, mensaje: 'Ruta de notas activa' });
 });
 
-module.exports = router;
+export default router;

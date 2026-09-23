@@ -1,29 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { 
+  Users, 
+  CalendarCheck, 
+  AlertTriangle, 
+  User, 
+  Settings, 
+  LogOut, 
+  CheckCircle2, 
+  Search, 
+  Loader2 
+} from 'lucide-react';
+import api from '../services/api';
 
-export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], setAlumnos, todosLosCursos = [] }) {
-  // Cursos asignados por defecto al preceptor
-  const [misCursos, setMisCursos] = useState(['5° A', '5° B', '5° C']);
-  const [configurandoCursos, setConfigurandoCursos] = useState(false);
+export default function PreceptorDashboard({ usuario, onLogout, onCerrarSesion }) {
+  const handleSalir = onLogout || onCerrarSesion;
 
+  // Estados de datos
+  const [misCursos, setMisCursos] = useState([]);
+  const [todosLosCursos, setTodosLosCursos] = useState([]);
+  const [alumnos, setAlumnos] = useState([]);
+  const [historialSanciones, setHistorialSanciones] = useState([]);
+  
+  // UI & Navegación
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [configurandoCursos, setConfigurandoCursos] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+
+  // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [divisionFilter, setDivisionFilter] = useState('Todos');
   const [turnoFilter, setTurnoFilter] = useState('Todos');
-  const [cursoAsistencia, setCursoAsistencia] = useState('5° A');
+  const [cursoAsistencia, setCursoAsistencia] = useState('');
+  const [fechaAsistencia, setFechaAsistencia] = useState(new Date().toISOString().split('T')[0]);
 
-  // Estados para sanciones
+  // Formulario de sanciones
   const [sancionAlumnoId, setSancionAlumnoId] = useState('');
   const [sancionTipo, setSancionTipo] = useState('Apercibimiento');
   const [sancionFecha, setSancionFecha] = useState(new Date().toISOString().split('T')[0]);
   const [sancionMotivo, setSancionMotivo] = useState('');
 
-  // Historial dinámico de sanciones
-  const [historialSanciones, setHistorialSanciones] = useState([
-    { id: 1, alumno: 'Felipe Castro', curso: '5° A', turno: 'Mañana', tipo: 'Amonestación (2)', motivo: 'Uso indebido del celular en hora de clase.', fecha: '12/08/2026' },
-    { id: 2, alumno: 'Joaquín Diaz', curso: '5° B', turno: 'Tarde', tipo: 'Apercibimiento', motivo: 'Llegada tarde reiterada sin justificación.', fecha: '10/08/2026' }
-  ]);
+  //Carga datos iniciales desde el backend
+  useEffect(() => {
+    const cargarDatosPreceptor = async () => {
+      try {
+        setCargando(true);
+        const [resCursos, resAlumnos, resSanciones] = await Promise.all([
+          api.get('/preceptor/cursos'),
+          api.get('/preceptor/alumnos'),
+          api.get('/preceptor/sanciones')
+        ]);
 
-  // Alternar selección de un curso
+        const cursosAsignados = resCursos.data.misCursos || [];
+        setMisCursos(cursosAsignados);
+        setTodosLosCursos(resCursos.data.todosLosCursos || []);
+        setAlumnos(resAlumnos.data || []);
+        setHistorialSanciones(resSanciones.data || []);
+
+        if (cursosAsignados.length > 0) {
+          setCursoAsistencia(cursosAsignados[0]);
+        }
+      } catch (error) {
+        console.error('Error al cargar datos del preceptor:', error);
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarDatosPreceptor();
+  }, []);
+
+  // Alternar cursos asignados
   const toggleCurso = (curso) => {
     if (misCursos.includes(curso)) {
       setMisCursos(misCursos.filter(c => c !== curso));
@@ -32,52 +79,90 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
     }
   };
 
-  // Alumnos filtrados únicamente por los cursos a cargo del preceptor
+  // Filtrado de alumnos por cursos asignados
   const alumnosDeMisCursos = alumnos.filter(a => misCursos.includes(a.curso));
 
-  // Alumnos filtrados con barra de búsqueda, división y turno
   const alumnosFiltrados = alumnosDeMisCursos.filter(alumno => {
-    const coincideBusqueda = alumno.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             alumno.dni.toString().includes(searchTerm);
+    const coincideBusqueda = 
+      alumno.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (alumno.dni && alumno.dni.toString().includes(searchTerm));
     const coincideDivision = divisionFilter === 'Todos' || alumno.curso === divisionFilter;
     const coincideTurno = turnoFilter === 'Todos' || alumno.turno === turnoFilter;
     return coincideBusqueda && coincideDivision && coincideTurno;
   });
 
-  // Cambiar el estado de asistencia en tiempo real de un alumno
+  // Modificar asistencia localmente en pantalla
   const handleEstadoAsistenciaChange = (alumnoId, nuevoEstado) => {
-    if (!setAlumnos) return;
     setAlumnos(prev =>
       prev.map(a => (a.id.toString() === alumnoId.toString() ? { ...a, estado: nuevoEstado } : a))
     );
   };
 
-  const handleGuardarSancion = () => {
+  // Persistir Toma de Asistencia en Supabase / Backend
+  const handleGuardarAsistencia = async () => {
+    try {
+      setGuardando(true);
+      const alumnosDelCurso = alumnosDeMisCursos.filter(a => a.curso === cursoAsistencia);
+      
+      const payload = {
+        fecha: fechaAsistencia,
+        curso: cursoAsistencia,
+        asistencias: alumnosDelCurso.map(a => ({
+          alumno_id: a.id,
+          estado: a.estado || 'Presente'
+        }))
+      };
+
+      await api.post('/preceptor/asistencia', payload);
+      alert('¡Asistencia registrada con éxito!');
+    } catch (error) {
+      console.error('Error al guardar asistencia:', error);
+      alert('Error al intentar registrar la asistencia.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  // Persistir Nueva Sanción
+  const handleGuardarSancion = async () => {
     if (!sancionAlumnoId || !sancionMotivo.trim()) {
       alert('Por favor seleccioná un alumno e ingresá el motivo.');
       return;
     }
 
-    const alumnoEncontrado = alumnos.find(a => a.id.toString() === sancionAlumnoId.toString());
-    const [year, month, day] = sancionFecha.split('-');
+    try {
+      setGuardando(true);
+      const payload = {
+        alumno_id: sancionAlumnoId,
+        tipo: sancionTipo,
+        motivo: sancionMotivo,
+        fecha: sancionFecha
+      };
 
-    const nuevaSancion = {
-      id: Date.now(),
-      alumno: alumnoEncontrado ? alumnoEncontrado.nombre : 'Alumno no encontrado',
-      curso: alumnoEncontrado ? alumnoEncontrado.curso : '-',
-      turno: alumnoEncontrado ? alumnoEncontrado.turno : '-',
-      tipo: sancionTipo,
-      motivo: sancionMotivo,
-      fecha: `${day}/${month}/${year}`
-    };
-
-    setHistorialSanciones([nuevaSancion, ...historialSanciones]);
-    alert('¡Sanción registrada con éxito!');
-    setSancionAlumnoId('');
-    setSancionMotivo('');
+      const res = await api.post('/preceptor/sanciones', payload);
+      
+      setHistorialSanciones([res.data, ...historialSanciones]);
+      alert('¡Sanción registrada correctamente!');
+      setSancionAlumnoId('');
+      setSancionMotivo('');
+    } catch (error) {
+      console.error('Error al guardar sanción:', error);
+      alert('Ocurrió un error al registrar la sanción.');
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  // Pantalla / Modal de config de cursos
+  if (cargando) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-3">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+        <p className="text-sm font-medium">Cargando panel de preceptoría...</p>
+      </div>
+    );
+  }
+
+  // Modal / Pantalla de selección de cursos
   if (configurandoCursos) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -97,7 +182,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                   key={curso}
                   type="button"
                   onClick={() => toggleCurso(curso)}
-                  className={`py-2 px-3 rounded-xl font-semibold text-xs border transition flex justify-between items-center ${
+                  className={`py-2 px-3 rounded-xl font-semibold text-xs border transition flex justify-between items-center cursor-pointer ${
                     seleccionado
                       ? 'bg-blue-600 text-white border-blue-600 shadow-md'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -115,6 +200,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
               Cursos seleccionados: <strong>{misCursos.length}</strong>
             </span>
             <button
+              type="button"
               onClick={() => {
                 if (misCursos.length === 0) {
                   alert('Debes seleccionar al menos un curso a cargo.');
@@ -125,7 +211,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                 }
                 setConfigurandoCursos(false);
               }}
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-lg shadow transition"
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-lg shadow transition cursor-pointer"
             >
               Confirmar y Continuar
             </button>
@@ -136,18 +222,19 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Header Superior */}
-      <header className="bg-white border-b px-6 py-3 flex justify-between items-center shadow-sm">
+      <header className="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
           <span className="text-slate-800 font-semibold text-sm">
             Rol: <strong className="text-blue-600">Preceptor</strong>
           </span>
           <button
+            type="button"
             onClick={() => setConfigurandoCursos(true)}
-            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border font-medium transition"
+            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-300 font-medium transition flex items-center gap-1.5 cursor-pointer"
           >
-            ⚙️ Mis Cursos ({misCursos.length})
+            <Settings size={14} /> Mis Cursos ({misCursos.length})
           </button>
         </div>
         <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-medium border border-emerald-200">
@@ -164,16 +251,22 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">General</p>
               <nav className="space-y-1">
                 <button
+                  type="button"
                   onClick={() => setActiveTab('dashboard')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'dashboard' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                    activeTab === 'dashboard' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-400'
+                  }`}
                 >
-                  Panel
+                  <Users size={16} /> Panel
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('perfil')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'perfil' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                    activeTab === 'perfil' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-400'
+                  }`}
                 >
-                  Mis Datos
+                  <User size={16} /> Mis Datos
                 </button>
               </nav>
             </div>
@@ -182,38 +275,48 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Gestión Preceptoría</p>
               <nav className="space-y-1">
                 <button
+                  type="button"
                   onClick={() => setActiveTab('alumnos')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'alumnos' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                    activeTab === 'alumnos' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-400'
+                  }`}
                 >
-                  Mis Cursos
+                  <Users size={16} /> Mis Cursos
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('asistencia')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'asistencia' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                    activeTab === 'asistencia' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-400'
+                  }`}
                 >
-                  Toma de Asistencia
+                  <CalendarCheck size={16} /> Toma de Asistencia
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('sanciones')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'sanciones' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800'}`}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                    activeTab === 'sanciones' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-400'
+                  }`}
                 >
-                  Sanciones
+                  <AlertTriangle size={16} /> Sanciones
                 </button>
               </nav>
             </div>
           </div>
 
           <button
-            onClick={onLogout}
-            className="w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm transition mt-6"
+            type="button"
+            onClick={handleSalir}
+            className="w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm transition mt-6 flex items-center justify-center gap-2 cursor-pointer"
           >
-            Cerrar Sesión
+            <LogOut size={16} /> Cerrar Sesión
           </button>
         </aside>
 
         {/* Contenido Principal */}
         <main className="flex-1 p-8 overflow-y-auto">
-          {/* Vista 1: dashboard*/}
+          {/* Vista 1: Dashboard */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               <div>
@@ -224,23 +327,23 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-xl border shadow-sm">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <span className="text-xs text-slate-500 font-medium">Total Alumnos A Cargo</span>
                   <p className="text-2xl font-bold text-slate-800 mt-1">{alumnosDeMisCursos.length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-emerald-500">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-emerald-500">
                   <span className="text-xs text-slate-500 font-medium">Presentes Hoy</span>
                   <p className="text-2xl font-bold text-emerald-600 mt-1">
                     {alumnosDeMisCursos.filter(a => a.estado === 'Presente').length}
                   </p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-red-500">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-red-500">
                   <span className="text-xs text-slate-500 font-medium">Ausentes Hoy</span>
                   <p className="text-2xl font-bold text-red-600 mt-1">
                     {alumnosDeMisCursos.filter(a => a.estado === 'Ausente').length}
                   </p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-amber-500">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-amber-500">
                   <span className="text-xs text-slate-500 font-medium">Tardanzas Hoy</span>
                   <p className="text-2xl font-bold text-amber-600 mt-1">
                     {alumnosDeMisCursos.filter(a => a.estado === 'Tardanza').length}
@@ -250,7 +353,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
             </div>
           )}
 
-          {/* Vista 2: mis cursos/alumnos*/}
+          {/* Vista 2: Mis Cursos / Alumnos */}
           {activeTab === 'alumnos' && (
             <div className="space-y-6">
               <div>
@@ -258,22 +361,26 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                 <p className="text-slate-500 text-sm">Listado de alumnos de tus divisiones asignadas ({alumnosFiltrados.length} mostrados)</p>
               </div>
 
-              <div className="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-xl border shadow-sm">
-                <input
-                  type="text"
-                  placeholder="Buscar por Nombre o DNI..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-4 py-2 border rounded-lg text-sm w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por Nombre o DNI..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-slate-500">Turno:</span>
                   {['Todos', 'Mañana', 'Tarde'].map(turno => (
                     <button
                       key={turno}
+                      type="button"
                       onClick={() => setTurnoFilter(turno)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${turnoFilter === turno ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${turnoFilter === turno ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                     >
                       {turno}
                     </button>
@@ -282,16 +389,18 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
 
                 <div className="flex flex-wrap gap-1.5">
                   <button
+                    type="button"
                     onClick={() => setDivisionFilter('Todos')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${divisionFilter === 'Todos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${divisionFilter === 'Todos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                   >
                     Todos
                   </button>
                   {misCursos.map(div => (
                     <button
                       key={div}
+                      type="button"
                       onClick={() => setDivisionFilter(div)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${divisionFilter === div ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${divisionFilter === div ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                     >
                       {div}
                     </button>
@@ -299,9 +408,9 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50 border-b text-xs uppercase font-semibold text-slate-500">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-semibold text-slate-500">
                     <tr>
                       <th className="p-4">Alumno</th>
                       <th className="p-4">DNI</th>
@@ -311,7 +420,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                       <th className="p-4">Inasistencias</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-slate-100">
                     {alumnosFiltrados.map(a => (
                       <tr key={a.id} className="hover:bg-slate-50">
                         <td className="p-4 font-medium text-slate-800">{a.nombre}</td>
@@ -329,10 +438,10 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                             a.estado === 'Presente' ? 'bg-emerald-100 text-emerald-800' :
                             a.estado === 'Tardanza' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {a.estado}
+                            {a.estado || 'Presente'}
                           </span>
                         </td>
-                        <td className="p-4">{a.inasistencias}</td>
+                        <td className="p-4">{a.inasistencias || 0}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -341,7 +450,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
             </div>
           )}
 
-          {/* Vista 3: asistencia*/}
+          {/* Vista 3: Asistencia */}
           {activeTab === 'asistencia' && (
             <div className="space-y-6">
               <div>
@@ -349,14 +458,14 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                 <p className="text-slate-500 text-sm">Seleccioná uno de tus cursos asignados</p>
               </div>
 
-              <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-wrap items-center justify-between gap-4">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Curso / División</label>
                     <select 
                       value={cursoAsistencia}
                       onChange={(e) => setCursoAsistencia(e.target.value)}
-                      className="px-3 py-2 border rounded-lg text-sm bg-slate-50 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {misCursos.map(c => (
                         <option key={c} value={c}>{c}</option>
@@ -368,23 +477,27 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Fecha</label>
                     <input 
                       type="date" 
-                      defaultValue={new Date().toISOString().split('T')[0]}
-                      className="px-3 py-2 border rounded-lg text-sm bg-slate-50 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={fechaAsistencia}
+                      onChange={(e) => setFechaAsistencia(e.target.value)}
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
                 <button 
-                  onClick={() => alert('¡Asistencia guardada correctamente!')}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-lg shadow-sm transition"
+                  type="button"
+                  onClick={handleGuardarAsistencia}
+                  disabled={guardando}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-semibold text-sm rounded-lg shadow-sm transition flex items-center gap-2 cursor-pointer"
                 >
+                  {guardando ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
                   Guardar Asistencia
                 </button>
               </div>
 
-              <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50 border-b text-xs uppercase font-semibold text-slate-500">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-semibold text-slate-500">
                     <tr>
                       <th className="p-4">Alumno</th>
                       <th className="p-4">Turno</th>
@@ -393,7 +506,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                       <th className="p-4 text-center">Tardanza</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-slate-100">
                     {alumnosDeMisCursos
                       .filter(a => a.curso === cursoAsistencia)
                       .map(a => (
@@ -408,9 +521,9 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                             <input 
                               type="radio" 
                               name={`asistencia-${a.id}`} 
-                              checked={a.estado === 'Presente'} 
+                              checked={(a.estado || 'Presente') === 'Presente'} 
                               onChange={() => handleEstadoAsistenciaChange(a.id, 'Presente')}
-                              className="w-4 h-4 accent-emerald-600" 
+                              className="w-4 h-4 accent-emerald-600 cursor-pointer" 
                             />
                           </td>
                           <td className="p-4 text-center">
@@ -419,7 +532,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                               name={`asistencia-${a.id}`} 
                               checked={a.estado === 'Ausente'} 
                               onChange={() => handleEstadoAsistenciaChange(a.id, 'Ausente')}
-                              className="w-4 h-4 accent-red-600" 
+                              className="w-4 h-4 accent-red-600 cursor-pointer" 
                             />
                           </td>
                           <td className="p-4 text-center">
@@ -428,7 +541,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                               name={`asistencia-${a.id}`} 
                               checked={a.estado === 'Tardanza'} 
                               onChange={() => handleEstadoAsistenciaChange(a.id, 'Tardanza')}
-                              className="w-4 h-4 accent-amber-600" 
+                              className="w-4 h-4 accent-amber-600 cursor-pointer" 
                             />
                           </td>
                         </tr>
@@ -439,19 +552,20 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
             </div>
           )}
 
-          {/* Vista 4: perfil*/}
+          {/* Vista 4: Perfil */}
           {activeTab === 'perfil' && (
             <div className="space-y-6">
               <h1 className="text-2xl font-bold text-slate-800">Mis Datos</h1>
-              <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
-                <p><strong>Nombre:</strong> {usuario?.nombre || 'Andrea Cardozo'}</p>
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 max-w-xl">
+                <p><strong>Nombre:</strong> {usuario?.nombre || 'Preceptor'}</p>
                 <p><strong>Cargo:</strong> Preceptor</p>
                 <p><strong>Cursos Asignados:</strong> {misCursos.join(', ')}</p>
                 <p><strong>Total de Alumnos Administrados:</strong> {alumnosDeMisCursos.length}</p>
 
                 <button
+                  type="button"
                   onClick={() => setConfigurandoCursos(true)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition cursor-pointer"
                 >
                   Cambiar Mis Cursos a Cargo
                 </button>
@@ -459,7 +573,7 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
             </div>
           )}
 
-          {/* Vista 5: sanciones*/}
+          {/* Vista 5: Sanciones */}
           {activeTab === 'sanciones' && (
             <div className="space-y-6">
               <div>
@@ -467,15 +581,15 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
                 <p className="text-slate-500 text-sm">Aplica sanciones a alumnos de tus divisiones a cargo</p>
               </div>
 
-              <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
-                <h2 className="text-base font-semibold text-slate-800 border-b pb-2">Registrar Nueva Sanción</h2>
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <h2 className="text-base font-semibold text-slate-800 border-b border-slate-200 pb-2">Registrar Nueva Sanción</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Seleccionar Alumno</label>
                     <select 
                       value={sancionAlumnoId}
                       onChange={(e) => setSancionAlumnoId(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Buscar estudiante...</option>
                       {alumnosDeMisCursos.map(a => (
@@ -486,86 +600,87 @@ export default function PreceptorDashboard({ usuario, onLogout, alumnos = [], se
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Tipo de Sanción</label>
-                    <select 
+                    <select
                       value={sancionTipo}
                       onChange={(e) => setSancionTipo(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="Apercibimiento">Apercibimiento Escrito</option>
-                      <option value="Amonestación (1)">Amonestación (1)</option>
-                      <option value="Amonestación (2)">Amonestación (2)</option>
-                      <option value="Llamado de Atención">Llamado de Atención</option>
-                      <option value="Acta de Convivencia">Acta de Convivencia</option>
+                      <option value="Apercibimiento">Apercibimiento</option>
+                      <option value="Amonestación">Amonestación</option>
+                      <option value="Suspensión">Suspensión</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1">Fecha</label>
                     <input 
-                      type="date" 
+                      type="date"
                       value={sancionFecha}
                       onChange={(e) => setSancionFecha(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Motivo / Observación</label>
-                  <textarea 
-                    rows="2"
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Motivo / Detalle</label>
+                  <textarea
+                    rows={3}
                     value={sancionMotivo}
                     onChange={(e) => setSancionMotivo(e.target.value)}
-                    placeholder="Detalle del incidente..."
-                    className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  ></textarea>
+                    placeholder="Describí el motivo de la sanción..."
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
                 <div className="flex justify-end">
-                  <button 
+                  <button
+                    type="button"
                     onClick={handleGuardarSancion}
-                    className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm rounded-lg shadow-sm transition"
+                    disabled={guardando}
+                    className="px-5 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white font-semibold text-sm rounded-lg shadow-sm transition flex items-center gap-2 cursor-pointer"
                   >
-                    Guardar Sanción
+                    {guardando ? <Loader2 className="animate-spin" size={16} /> : <AlertTriangle size={16} />}
+                    Aplicar Sanción
                   </button>
                 </div>
               </div>
 
-              {/* Historial */}
-              <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
-                  <h3 className="text-sm font-semibold text-slate-700">Historial de Sanciones Recientes</h3>
-                  <span className="text-xs font-medium text-slate-500">Total: {historialSanciones.length}</span>
+              {/* Historial de Sanciones */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-200 font-semibold text-slate-800 text-sm">
+                  Historial Reciente de Sanciones
                 </div>
                 <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50 border-b text-xs uppercase font-semibold text-slate-500">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-semibold text-slate-500">
                     <tr>
+                      <th className="p-4">Fecha</th>
                       <th className="p-4">Alumno</th>
-                      <th className="p-4">Curso</th>
-                      <th className="p-4">Turno</th>
                       <th className="p-4">Tipo</th>
                       <th className="p-4">Motivo</th>
-                      <th className="p-4">Fecha</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
-                    {historialSanciones.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="p-4 font-medium text-slate-800">{item.alumno}</td>
-                        <td className="p-4">{item.curso}</td>
-                        <td className="p-4">{item.turno}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            item.tipo.includes('Amonestación') ? 'bg-red-100 text-red-800' :
-                            item.tipo.includes('Apercibimiento') ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {item.tipo}
-                          </span>
+                  <tbody className="divide-y divide-slate-100">
+                    {historialSanciones.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-4 text-center text-slate-400 text-xs">
+                          No hay sanciones registradas aún.
                         </td>
-                        <td className="p-4">{item.motivo}</td>
-                        <td className="p-4">{item.fecha}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      historialSanciones.map((s, idx) => (
+                        <tr key={s.id || idx} className="hover:bg-slate-50">
+                          <td className="p-4 text-xs text-slate-500">{s.fecha}</td>
+                          <td className="p-4 font-medium text-slate-800">{s.alumno_nombre || s.alumno_id}</td>
+                          <td className="p-4">
+                            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">
+                              {s.tipo}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-600">{s.motivo}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
