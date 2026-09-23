@@ -1,23 +1,24 @@
-const supabase = require('../db.js'); 
+const pool = require('../db.js'); 
 
-// Obtener la lista de alumnos desde Supabase
+// Obtener la lista de alumnos desde la base de datos
 exports.obtenerAlumnos = async (req, res) => {
   try {
-    // Consultamos la tabla usuarios donde rol_id sea 1 (Alumno)
-    const { data: alumnos, error } = await supabase
-      .from('usuarios')
-      .select('id, nombre, apellido, email, rol_id')
-      .eq('rol_id', 1);
-
-    if (error) {
-      return res.status(400).json({ exito: false, mensaje: error.message });
-    }
+    // Consultamos directamente con SQL a la tabla usuarios
+    const query = 'SELECT id, nombre, apellido, email, rol_id FROM usuarios WHERE rol_id = $1';
+    const { rows: alumnos } = await pool.query(query, [1]);
 
     return res.json({
       exito: true,
       alumnos
     });
+
   } catch (err) {
-    return res.status(500).json({ exito: false, mensaje: 'Error interno del servidor' });
+    console.error('CRASH EN OBTENER ALUMNOS:', err);
+
+    return res.status(500).json({ 
+      exito: false, 
+      mensaje: 'Error interno del servidor',
+      errorDetalle: err.message || err 
+    });
   }
 };

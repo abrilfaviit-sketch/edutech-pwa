@@ -182,3 +182,38 @@
     border-right-color: var(--border);
   }
 }
+
+
+/* Custom Scrollbar para el panel profesor
+ */
+@layer utilities {
+  /* Ancho y alto fino para Chrome, Safari y Edge */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  /* Fondo del canal por donde corre la barra */
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* La barra que se mueve (contenido principal) */
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* slate-300 */
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; /* slate-400 */
+  }
+
+  /* La barra que se mueve en el Sidebar (fondo oscuro) */
+  aside::-webkit-scrollbar-thumb {
+    background: #334155; /* slate-700 */
+  }
+
+  aside::-webkit-scrollbar-thumb:hover {
+    background: #475569; /* slate-600 */
+  }
+}

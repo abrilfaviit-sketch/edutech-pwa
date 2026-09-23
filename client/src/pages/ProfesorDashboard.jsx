@@ -362,7 +362,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col notranslate" translate="no">
+    <div className="h-screen overflow-hidden bg-gray-100 flex flex-col notranslate" translate="no"> {/*acá se agrego 1/3 modificaciones para trabar el scroll de la ventana global */}
       {/* Header */}
       <header className="bg-white border-b px-6 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
@@ -379,9 +379,9 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
         </div>
       </header>
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 h-full min-h-0 overflow-hidden">{/*acá agregue el 2/3 de cambios*/}
         {/* Sidebar Lateral */}
-        <aside className="w-64 bg-slate-900 text-slate-300 p-4 flex flex-col justify-between min-h-[calc(100vh-57px)]">
+        <aside className="w-64 shrink-0 bg-slate-900 text-slate-300 p-4 flex flex-col justify-between h-full overflow-y-auto"> {/*acá agregue el 2/3 de cambios*/}
           <div className="space-y-6">
             <div className="space-y-3">
               <div>
@@ -487,7 +487,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
         </aside>
 
         {/* ÁREA DE CONTENIDO */}
-        <main className="flex-1 p-8 overflow-y-auto relative">
+        <main className="flex-1 h-full overflow-y-auto p-8 relative"> {/*modificación 3/3 */}
           {mensajeExito && (
             <div className="fixed top-5 right-5 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-bounce z-50">
               <span>✅</span>

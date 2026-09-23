@@ -472,7 +472,7 @@ define(['exports'], (function (exports) { 'use strict';
 
     // @ts-ignore
     try {
-      self['workbox:routing:7.4.0'] && _();
+      self['workbox:routing:7.4.0'] && _ ();
     } catch (e) {}
 
     /*

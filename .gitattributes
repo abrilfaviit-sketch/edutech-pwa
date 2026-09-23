@@ -1,0 +1,2 @@
+* text=auto eol=lf 
+# Configuración de saltos de línea unificados para desarrollo web (evita conflictos de LF vs CRLF entre Windows, Linux y Mac)
