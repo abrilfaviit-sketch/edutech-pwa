@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { verificarToken } = require('../middleware/authMiddleware.js');
+const { authMiddleware } = require('../middleware/authMiddleware.js');
 const { permitirRoles } = require('../middleware/roleMiddleware.js');
 
-router.get('/', verificarToken, (req, res) => {
+router.get('/', authMiddleware, (req, res) => {
   res.json({ exito: true, mensaje: 'Ruta de asistencias activa' });
 });
 
-export default router;
+module.exports = router;

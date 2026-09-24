@@ -1,53 +1,140 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import jsPDF from 'jspdf';
 
 export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], setAlumnos }) {
   const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
-  // MATERIAS ASIGNADAS PREVIAMENTE POR EL DIRECTIVO (Con avance de programa)
-  const [misMaterias, setMisMaterias] = useState([
-    { 
-      id: 1, 
-      nombre: 'Programación I', 
-      curso: '5° A', 
-      turno: 'Mañana', 
-      dias: ['Lunes', 'Miércoles'], 
-      horario: '07:30 - 09:30',
-      porcentajeProgreso: 65,
-      unidadesTotales: 6,
-      unidadesCompletadas: 4
-    },
-    { 
-      id: 2, 
-      nombre: 'Bases de Datos', 
-      curso: '5° B', 
-      turno: 'Tarde', 
-      dias: ['Martes', 'Jueves'], 
-      horario: '13:30 - 15:30',
-      porcentajeProgreso: 40,
-      unidadesTotales: 5,
-      unidadesCompletadas: 2
-    }
-  ]);
 
-  // ESTADO DEL PANEL PRINCIPAL
+  //estados principales
+  const [misMaterias, setMisMaterias] = useState([]);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  //Estados de selección y nav
   const [diaSeleccionado, setDiaSeleccionado] = useState('Lunes');
-  const materiasDelDia = misMaterias.filter(m => m.dias.includes(diaSeleccionado));
-  
-  const [materiaSeleccionada, setMateriaSeleccionada] = useState(misMaterias[0] || null);
-
-  const esDiaDeClase = materiaSeleccionada ? materiaSeleccionada.dias.includes(diaSeleccionado) : false;
-
+  const [materiaSeleccionada, setMateriaSeleccionada] = useState(null);
   const [activeTab, setActiveTab] = useState('inicio');
   const [trimestre, setTrimestre] = useState('1° Trimestre');
   const [mensajeExito, setMensajeExito] = useState('');
-
   const [mostrarTomaAsistencia, setMostrarTomaAsistencia] = useState(false);
-
-  // FILTRO POR NOMBRE
   const [filtroNombre, setFiltroNombre] = useState('');
 
-  // ALUMNOS FILTRADOS SEGÚN LA MATERIA/CURSO Y EL NOMBRE
+  // colecciones de supabase
+  const [asistenciaPorMateria, setAsistenciaPorMateria] = useState({});
+  const [mesasExamen, setMesasExamen] = useState([]);
+  const [tareasPorMateria, setTareasPorMateria] = useState({});
+  const [planificacionesPorMateria, setPlanificacionesPorMateria] = useState({});
+  const [alertasAcademicas, setAlertasAcademicas] = useState([]);
+
+  //estados del form
+  const [nuevaTarea, setNuevaTarea] = useState({ titulo: '', fechaEntrega: '', consigna: '', archivo: null });
+  const [nuevaPlanificacion, setNuevaPlanificacion] = useState({ periodo: 'Plan Anual 2026', descripcion: '', archivo: null });
+  const [modalInscriptos, setModalInscriptos] = useState({ abierto: false, mesa: null });
+
+
+  //Funciones auxiliares
+  const mostrarNotificacion = useCallback((texto) => {
+    setMensajeExito(texto);
+    setTimeout(() => setMensajeExito(''), 3000);
+  }, []);
+
+  const guardarEnColaOffline = (tipo, payload) => {
+    const pendientes = JSON.parse(localStorage.getItem('ls_pending_sync') || '[]');
+    pendientes.push({ tipo, payload, timestamp: new Date().toISOString() });
+    localStorage.setItem('ls_pending_sync', JSON.stringify(pendientes));
+  };
+
+  const cargarDatosProfesor = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:4000/api/profesor/dashboard-completo', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error('Error al conectar con la base de datos');
+
+      const data = await response.json();
+      setMisMaterias(data.materias || []);
+      setMesasExamen(data.mesasExamen || []);
+      setTareasPorMateria(data.tareasPorMateria || {});
+      setPlanificacionesPorMateria(data.planificacionesPorMateria || {});
+      setAsistenciaPorMateria(data.asistenciaPorMateria || {});
+      setAlertasAcademicas(data.alertasAcademicas || []);
+
+      if (data.materias && data.materias.length > 0) {
+        setMateriaSeleccionada(data.materias[0]);
+      }
+    } catch {
+      mostrarNotificacion('Servidor no disponible. Funcionando en modo local.');
+    }
+  }, [mostrarNotificacion]);
+
+  const sincronizarPendientesConSupabase = useCallback(async () => {
+    const pendientes = JSON.parse(localStorage.getItem('ls_pending_sync') || '[]');
+    if (pendientes.length === 0) return;
+
+    const token = localStorage.getItem('token');
+    const errores = [];
+
+    for (const item of pendientes) {
+      try {
+        await fetch(`http://localhost:4000/api/profesor/sync/${item.tipo}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(item.payload)
+        });
+      } catch {
+        errores.push(item);
+      }
+    }
+
+    if (errores.length === 0) {
+      localStorage.removeItem('ls_pending_sync');
+      mostrarNotificacion('¡Todos los datos offline se sincronizaron con Supabase!');
+      cargarDatosProfesor();
+    } else {
+      localStorage.setItem('ls_pending_sync', JSON.stringify(errores));
+    }
+  }, [cargarDatosProfesor, mostrarNotificacion]);
+
+
+  //efectos
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      mostrarNotificacion('Conexión reestablecida. Sincronizando datos pendientes...');
+      sincronizarPendientesConSupabase();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      mostrarNotificacion('Modo Offline: Los cambios se guardarán localmente hasta recuperar señal.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [mostrarNotificacion, sincronizarPendientesConSupabase]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarDatosProfesor();
+  }, [cargarDatosProfesor]);
+
+
+  // operaciones y eventos
+  const materiasDelDia = misMaterias.filter(m => m.dias && m.dias.includes(diaSeleccionado));
+  const esDiaDeClase = materiaSeleccionada ? (materiaSeleccionada.dias || []).includes(diaSeleccionado) : false;
+
   const alumnosActuales = materiaSeleccionada 
     ? alumnos.filter(a => 
         a.curso === materiaSeleccionada.curso &&
@@ -55,16 +142,16 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
       )
     : [];
 
-  // ASISTENCIA
-  const [asistenciaPorMateria, setAsistenciaPorMateria] = useState({});
-
   const getEstadoAsistencia = (alumnoId, estadoOriginal) => {
     if (!materiaSeleccionada) return estadoOriginal || 'Presente';
     return asistenciaPorMateria[materiaSeleccionada.id]?.[alumnoId] || estadoOriginal || 'Presente';
   };
 
-  const handleAsistenciaChange = (alumnoId, estado) => {
+  const handleAsistenciaChange = async (alumnoId, estado) => {
     if (!materiaSeleccionada || !esDiaDeClase) return;
+
+    const payload = { materiaId: materiaSeleccionada.id, alumnoId, estado, fecha: new Date().toISOString() };
+
     setAsistenciaPorMateria(prev => ({
       ...prev,
       [materiaSeleccionada.id]: {
@@ -72,6 +159,23 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
         [alumnoId]: estado
       }
     }));
+
+    if (!isOnline) {
+      guardarEnColaOffline('asistencia', payload);
+      mostrarNotificacion('Asistencia guardada localmente (Offline).');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:4000/api/profesor/asistencia', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      guardarEnColaOffline('asistencia', payload);
+    }
   };
 
   const handleDescargarAsistencia = () => {
@@ -97,67 +201,30 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     URL.revokeObjectURL(url);
   };
 
-  // MESAS DE EXAMEN (Gestionadas por Directivos, notificadas a Profesores)
-  const [mesasExamen, setMesasExamen] = useState([
-    {
-      id: 1,
-      materiaId: 1,
-      materiaNombre: 'Programación I',
-      curso: '5° A',
-      tipo: 'Regular',
-      estadoInscripcion: 'Abierta',
-      estadoDocente: 'Pendiente', // 'Pendiente', 'Aceptada', 'Rechazada'
-      fecha: '2026-07-15',
-      hora: '09:00',
-      aula: 'Aula 101',
-      inscriptos: [
-        { id: 101, nombre: 'Gómez, Lucas', dni: '44.123.456', condicion: 'Regular' },
-        { id: 102, nombre: 'Martínez, Sofia', dni: '43.876.543', condicion: 'Regular' }
-      ]
-    },
-    {
-      id: 2,
-      materiaId: 2,
-      materiaNombre: 'Bases de Datos',
-      curso: '5° B',
-      tipo: 'Previa',
-      estadoInscripcion: 'Abierta',
-      estadoDocente: 'Aceptada',
-      fecha: '2026-07-18',
-      hora: '14:00',
-      aula: 'Laboratorio 2',
-      inscriptos: [
-        { id: 103, nombre: 'Fernández, Mateo', dni: '42.998.112', condicion: 'Previa' }
-      ]
-    }
-  ]);
-
-  const [modalInscriptos, setModalInscriptos] = useState({ abierto: false, mesa: null });
-
-  // Función para que el docente acepte o rechace la asignación de la mesa
-  const handleCambiarEstadoMesaDocente = (mesaId, nuevoEstado) => {
+  const handleCambiarEstadoMesaDocente = async (mesaId, nuevoEstado) => {
+    const payload = { mesaId, nuevoEstado };
     setMesasExamen(prev => prev.map(m => m.id === mesaId ? { ...m, estadoDocente: nuevoEstado } : m));
-    mostrarNotificacion(`Has ${nuevoEstado.toLowerCase()} la convocatoria a la mesa de examen.`);
+
+    if (!isOnline) {
+      guardarEnColaOffline('mesa-estado', payload);
+      mostrarNotificacion(`Has ${nuevoEstado.toLowerCase()} la convocatoria (Pendiente de Sync).`);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:4000/api/profesor/mesas/estado', {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      mostrarNotificacion(`Has ${nuevoEstado.toLowerCase()} la convocatoria a la mesa de examen.`);
+    } catch {
+      guardarEnColaOffline('mesa-estado', payload);
+    }
   };
 
-  // TAREAS Y TRABAJOS
-  const [nuevaTarea, setNuevaTarea] = useState({ titulo: '', fechaEntrega: '', consigna: '', archivo: null });
-  const [tareasPorMateria, setTareasPorMateria] = useState({
-    1: [
-      {
-        id: 101,
-        titulo: 'TP N° 1: Algoritmos y Diagramas de Flujo',
-        fechaEntrega: '2026-08-25',
-        consigna: 'Resolver los ejercicios 1 al 5 del cuadernillo. Adjuntar diagrama en PDF o imagen legible.',
-        archivoNombre: 'Guia_Ejercicios_TP1.pdf',
-        entregadosCount: 3,
-        corregidosCount: 2
-      }
-    ]
-  });
-  
   const tareasActuales = materiaSeleccionada ? (tareasPorMateria[materiaSeleccionada.id] || []) : [];
-
   const totalAlumnosMateria = alumnosActuales.length || 1;
   const totalTareasCount = tareasActuales.length;
   const totalEntregadosCount = tareasActuales.reduce((acc, t) => acc + (t.entregadosCount || 0), 0);
@@ -166,38 +233,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
   const totalPendientesCount = Math.max(0, totalPosiblesEntregas - totalEntregadosCount);
   const porcentajeCumplimiento = totalPosiblesEntregas > 0 ? Math.round((totalEntregadosCount / totalPosiblesEntregas) * 100) : 0;
 
-  // ALERTAS ACADÉMICAS
-  const [alertasAcademicas] = useState([
-    {
-      id: 1,
-      tipo: 'inasistencia',
-      nivel: 'critico',
-      titulo: 'Inasistencias Críticas',
-      descripcion: 'El alumno Fernández, Mateo (5° B) alcanzó 5 inasistencias consecutivas.',
-      materia: 'Bases de Datos',
-      fecha: 'Hoy'
-    },
-    {
-      id: 2,
-      tipo: 'entrega',
-      nivel: 'advertencia',
-      titulo: 'Entregas Fuera de Término',
-      descripcion: '3 alumnos entregaron el TP N° 1 después de la fecha límite establecida.',
-      materia: 'Programación I',
-      fecha: 'Ayer'
-    },
-    {
-      id: 3,
-      tipo: 'examen',
-      nivel: 'info',
-      titulo: 'Próxima Mesa de Examen',
-      descripcion: 'Mesa de Regularización de Programación I programada en 5 días (Aula 101).',
-      materia: 'Programación I',
-      fecha: 'En 5 días'
-    }
-  ]);
-
-  const handlePublicarTarea = (e) => {
+  const handlePublicarTarea = async (e) => {
     e.preventDefault();
     if (!materiaSeleccionada) return;
     if (!nuevaTarea.titulo || !nuevaTarea.consigna) {
@@ -207,6 +243,7 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
 
     const tareaPublicada = {
       id: Date.now(),
+      materiaId: materiaSeleccionada.id,
       titulo: nuevaTarea.titulo,
       fechaEntrega: nuevaTarea.fechaEntrega || 'Sin fecha límite',
       consigna: nuevaTarea.consigna,
@@ -224,30 +261,34 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     const fileInput = document.getElementById('archivoTareaInput');
     if (fileInput) fileInput.value = '';
 
-    mostrarNotificacion('¡Actividad publicada con éxito!');
+    if (!isOnline) {
+      guardarEnColaOffline('tarea', tareaPublicada);
+      mostrarNotificacion('¡Actividad guardada localmente (Offline)!');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:4000/api/profesor/tareas', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(tareaPublicada)
+      });
+      mostrarNotificacion('¡Actividad publicada con éxito en Supabase!');
+    } catch {
+      guardarEnColaOffline('tarea', tareaPublicada);
+    }
   };
-
-  // PLANIFICACIONES DOCENTES
-  const [planificacionesPorMateria, setPlanificacionesPorMateria] = useState({
-    1: [
-      { id: 101, periodo: 'Plan Anual 2026', descripcion: 'Ejes temáticos y contenidos mínimos para Programación I.', archivoNombre: 'Planificacion_Prog1_2026.pdf', fechaSubida: '10/03/2026', estado: 'Aprobado' }
-    ]
-  });
-
-  const [nuevaPlanificacion, setNuevaPlanificacion] = useState({
-    periodo: 'Plan Anual 2026',
-    descripcion: '',
-    archivo: null
-  });
 
   const planificacionesActuales = materiaSeleccionada ? (planificacionesPorMateria[materiaSeleccionada.id] || []) : [];
 
-  const handleSubirPlanificacion = (e) => {
+  const handleSubirPlanificacion = async (e) => {
     e.preventDefault();
     if (!materiaSeleccionada) return;
 
     const planSubido = {
       id: Date.now(),
+      materiaId: materiaSeleccionada.id,
       periodo: nuevaPlanificacion.periodo,
       descripcion: nuevaPlanificacion.descripcion || 'Sin observaciones.',
       archivoNombre: nuevaPlanificacion.archivo ? nuevaPlanificacion.archivo.name : 'Documento_Planificacion.pdf',
@@ -264,7 +305,23 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     const fileInput = document.getElementById('archivoPlanificacionInput');
     if (fileInput) fileInput.value = '';
 
-    mostrarNotificacion('¡Planificación registrada con éxito!');
+    if (!isOnline) {
+      guardarEnColaOffline('planificacion', planSubido);
+      mostrarNotificacion('¡Planificación guardada localmente (Offline)!');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:4000/api/profesor/planificaciones', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(planSubido)
+      });
+      mostrarNotificacion('¡Planificación registrada con éxito en Supabase!');
+    } catch {
+      guardarEnColaOffline('planificacion', planSubido);
+    }
   };
 
   const handleDescargarPlanificacionPDF = (plan) => {
@@ -322,9 +379,10 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
     doc.save(`Planificacion_${materiaSeleccionada.nombre}_${plan.periodo.replace(/ /g, '_')}.pdf`);
   };
 
-  const handleNotaChange = (alumnoId, campo, valor) => {
+  const handleNotaChange = async (alumnoId, campo, valor) => {
     const num = Math.min(10, Math.max(0, parseFloat(valor) || 0));
-    
+    let alumnoModificado = null;
+
     setAlumnos(prevAlumnos => {
       return prevAlumnos.map(a => {
         if (a.id === alumnoId) {
@@ -334,20 +392,35 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
           const tp = modificado.tp || modificado.TP || 0;
 
           const prom = parseFloat(((e1 + e2 + tp) / 3).toFixed(2));
-          return { 
+          alumnoModificado = { 
             ...modificado, 
             promedio: prom,
             estadoNotas: prom >= 6 ? 'Aprobado' : 'Desaprobado'
           };
+          return alumnoModificado;
         }
         return a;
       });
     });
-  };
 
-  const mostrarNotificacion = (texto) => {
-    setMensajeExito(texto);
-    setTimeout(() => setMensajeExito(''), 3000);
+    if (alumnoModificado) {
+      const payload = { alumnoId, campo, valor: num, materiaId: materiaSeleccionada?.id };
+      if (!isOnline) {
+        guardarEnColaOffline('nota', payload);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        await fetch('http://localhost:4000/api/profesor/notas', {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch {
+        guardarEnColaOffline('nota', payload);
+      }
+    }
   };
 
   const handleTabChange = (tab) => {
@@ -358,11 +431,12 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
   };
 
   const avancePromedioGeneral = Math.round(
-    misMaterias.reduce((acc, m) => acc + m.porcentajeProgreso, 0) / (misMaterias.length || 1)
+    misMaterias.reduce((acc, m) => acc + (m.porcentajeProgreso || 0), 0) / (misMaterias.length || 1)
   );
 
+
   return (
-    <div className="h-screen overflow-hidden bg-gray-100 flex flex-col notranslate" translate="no"> {/*acá se agrego 1/3 modificaciones para trabar el scroll de la ventana global */}
+    <div className="h-screen overflow-hidden bg-gray-100 flex flex-col notranslate" translate="no"> {/* 1/3 modificaciones para trabar el scroll de la ventana global */}
       {/* Header */}
       <header className="bg-white border-b px-6 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
@@ -379,9 +453,9 @@ export default function ProfesorDashboard({ usuario, onLogout, alumnos = [], set
         </div>
       </header>
 
-      <div className="flex flex-1 h-full min-h-0 overflow-hidden">{/*acá agregue el 2/3 de cambios*/}
+      <div className="flex flex-1 h-full min-h-0 overflow-hidden">{/* 2/3 de cambios*/}
         {/* Sidebar Lateral */}
-        <aside className="w-64 shrink-0 bg-slate-900 text-slate-300 p-4 flex flex-col justify-between h-full overflow-y-auto"> {/*acá agregue el 2/3 de cambios*/}
+        <aside className="w-64 shrink-0 bg-slate-900 text-slate-300 p-4 flex flex-col justify-between h-full overflow-y-auto"> {/* 2/3 de cambios*/}
           <div className="space-y-6">
             <div className="space-y-3">
               <div>

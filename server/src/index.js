@@ -1,15 +1,14 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
 
-// Importar rutas
-import authRoutes from './routes/authRoutes.js';
-import alumnosRoutes from './routes/alumnosRoutes.js';
-import asistenciasRoutes from './routes/asistenciasRoutes.js';
-import notasRoutes from './routes/notasRoutes.js';
-import preceptorRoutes from './routes/preceptorRoutes.js';
-
-dotenv.config();
+// Importa rutas 
+const authRoutes = require('./routes/authRoutes');
+const alumnosRoutes = require('./routes/alumnosRoutes');
+const asistenciasRoutes = require('./routes/asistenciasRoutes');
+const notasRoutes = require('./routes/notasRoutes');
+const preceptorRoutes = require('./routes/preceptorRoutes');
+const profesorRoutes = require('./routes/profesorRoutes');
 
 const app = express();
 
@@ -20,12 +19,13 @@ app.use(cors({
 
 app.use(express.json());
 
-// Conectar endpoints
+// Conecta endpoints
 app.use('/api/auth', authRoutes);
 app.use('/api/alumnos', alumnosRoutes);
 app.use('/api/asistencias', asistenciasRoutes);
 app.use('/api/notas', notasRoutes);
 app.use('/api/preceptor', preceptorRoutes);
+app.use('/api/profesor', profesorRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

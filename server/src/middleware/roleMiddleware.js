@@ -12,7 +12,7 @@ const permitirRoles = (...rolesPermitidos) => {
       });
     }
 
-    // 3. Normalizar array de roles permitidos para comparar números y strings
+    // 3. Normalizar array de roles permitidos y comparar números y strings
     const rolesNormalizados = rolesPermitidos.flatMap(r => [r, String(r), Number(r)].filter(v => !isNaN(v) || typeof v === 'string'));
 
     // 4. Comprobar si el rol del usuario está dentro de los autorizados

@@ -1,8 +1,8 @@
-import jwt from 'jsonwebtoken';
+const jwt = require('jsonwebtoken');
 
 // Middleware para verificar que el usuario esté autenticado mediante JWT
 
-export const authMiddleware = (req, res, next) => {
+ const authMiddleware = (req, res, next) => {
   // Lee 'authorization' o 'Authorization' por compatibilidad de encabezados HTTP
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -31,7 +31,4 @@ export const authMiddleware = (req, res, next) => {
   }
 };
 
-// Exportación secundaria por si se lo usa en otro lado
-export const verificarToken = authMiddleware;
-
-export default authMiddleware;
+module.exports = { authMiddleware };

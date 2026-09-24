@@ -1,6 +1,7 @@
-import { Router } from 'express';
-import { pool as supabase } from '../db.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+const { Router } = require('express');
+const pool = require('../db.js'); 
+const { authMiddleware } = require('../middleware/authMiddleware.js');
+
 
 const router = Router();
 
@@ -160,4 +161,4 @@ router.post('/sanciones', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

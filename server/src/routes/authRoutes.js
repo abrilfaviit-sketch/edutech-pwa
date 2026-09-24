@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { verificarToken } = require('../middleware/authMiddleware.js'); //verificar tokens
+const { authMiddleware } = require('../middleware/authMiddleware.js'); //verificar tokens
 const { permitirRoles } = require('../middleware/roleMiddleware.js'); // permitir roles
 
 router.post('/registro', authController.registrar);
 router.post('/login', authController.login);
 
 // Ruta 1: Cualquier usuario autenticado puede ver su perfil
-router.get('/perfil', verificarToken, (req, res) => {
+router.get('/perfil', authMiddleware, (req, res) => {
   res.json({
     exito: true,
     mensaje: 'Perfil de usuario obtenido correctamente',
@@ -17,7 +17,7 @@ router.get('/perfil', verificarToken, (req, res) => {
 });
 
 // Ruta 2: Solo accesibles por directivos o preceptores (Prueba de Roles)
-router.get('/panel-privado', verificarToken, permitirRoles(2, 4, 'preceptor', 'directora'), (req, res) => {
+router.get('/panel-privado', authMiddleware, permitirRoles(2, 4, 'preceptor', 'directora'), (req, res) => {
   res.json({
     exito: true,
     mensaje: 'Bienvenido al panel privado de gestión escolar'
@@ -25,4 +25,4 @@ router.get('/panel-privado', verificarToken, permitirRoles(2, 4, 'preceptor', 'd
 });
 
 
-export default router;
+module.exports = router;
