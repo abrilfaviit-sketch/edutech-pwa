@@ -1,38 +1,54 @@
-const db = require('../db');
+const { supabase } = require('../../config/supabase');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Registrar usuario
-exports.registrar = async (req, res) => {
+// Regitro de usuario
+const registrar = async (req, res) => {
   const { nombre, apellido, email, password, rol_id } = req.body;
 
   try {
-    const existe = await db.query('SELECT id FROM usuarios WHERE email = $1', [email]);
-    if (existe.rows.length > 0) {
+    // Verificar si el email ya existe
+    const { data: existe } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (existe) {
       return res.status(400).json({ error: 'El email ya está registrado' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const query = `
-      INSERT INTO usuarios (nombre, apellido, email, password_hash, rol_id)
-      VALUES ($1, $2, $3, $4, $5) RETURNING id, nombre, apellido, email, rol_id;
-    `;
-    const nuevoUsuario = await db.query(query, [nombre, apellido, email, passwordHash, rol_id]);
+    // Insertar nuevo usuario
+    const { data: nuevoUsuario, error } = await supabase
+      .from('usuarios')
+      .insert([
+        {
+          nombre,
+          apellido,
+          email,
+          password_hash: passwordHash,
+          rol_id
+        }
+      ])
+      .select('id, nombre, apellido, email, rol_id')
+      .single();
 
-    res.status(201).json({
+    if (error) throw error;
+
+    return res.status(201).json({
       mensaje: 'Usuario registrado con éxito',
-      usuario: nuevoUsuario.rows[0]
+      usuario: nuevoUsuario
     });
-
   } catch (error) {
-    console.error('Error en registrar:', error);
-    res.status(500).json({ error: 'Error al registrar el usuario' });
+    console.error('Error en registrar:', error.message);
+    return res.status(500).json({ error: 'Error al registrar el usuario' });
   }
 };
 
-// Login de usuario
-exports.login = async (req, res) => {
+// Logion del usuario
+const login = async (req, res) => {
   const { email, usuario, password } = req.body;
   const identificador = email || usuario;
 
@@ -41,13 +57,18 @@ exports.login = async (req, res) => {
   }
 
   try {
-    const result = await db.query('SELECT * FROM usuarios WHERE email = $1', [identificador]);
+    const { data: usuarioEncontrado, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('email', identificador)
+      .maybeSingle();
 
-    if (result.rows.length === 0) {
+    if (error) throw error;
+
+    if (!usuarioEncontrado) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    const usuarioEncontrado = result.rows[0];
     const hashGuardado = usuarioEncontrado.password_hash || usuarioEncontrado.password;
 
     if (!hashGuardado) {
@@ -65,7 +86,7 @@ exports.login = async (req, res) => {
       { expiresIn: '12h' }
     );
 
-    res.json({
+    return res.json({
       mensaje: 'Login exitoso',
       token,
       usuario: {
@@ -76,12 +97,45 @@ exports.login = async (req, res) => {
         rol_id: usuarioEncontrado.rol_id
       }
     });
-
   } catch (error) {
-    // ENVIAMOS EL MENSAJE REAL DIRECTAMENTE AL NAVEGADOR
-    return res.status(500).json({ 
-      error: 'Error interno en login', 
-      detalle: error.message 
+    console.error('Error interno en login:', error.message);
+    return res.status(500).json({
+      error: 'Error interno en login',
+      detalle: error.message
     });
   }
+};
+
+// verifica si la sesión esta activa
+const getPerfil = async (req, res) => {
+  try {
+    const usuarioId = req.user.id;
+
+    const { data: usuario, error } = await supabase
+      .from('usuarios')
+      .select('id, nombre, apellido, email, rol_id, roles(nombre)')
+      .eq('id', usuarioId)
+      .single();
+
+    if (error || !usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    return res.status(200).json({
+      id: usuario.id,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      email: usuario.email,
+      rol: usuario.roles?.nombre || 'usuario'
+    });
+  } catch (error) {
+    console.error('Error al obtener perfil:', error.message);
+    return res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+module.exports = {
+  registrar,
+  login,
+  getPerfil
 };

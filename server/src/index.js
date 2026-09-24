@@ -4,7 +4,7 @@ require('dotenv').config();
 
 // Importa rutas 
 const authRoutes = require('./routes/authRoutes');
-const alumnosRoutes = require('./routes/alumnosRoutes');
+const alumnoRoutes = require('./routes/alumnoRoutes');
 const asistenciasRoutes = require('./routes/asistenciasRoutes');
 const notasRoutes = require('./routes/notasRoutes');
 const preceptorRoutes = require('./routes/preceptorRoutes');
@@ -21,7 +21,7 @@ app.use(express.json());
 
 // Conecta endpoints
 app.use('/api/auth', authRoutes);
-app.use('/api/alumnos', alumnosRoutes);
+app.use('/api/alumnos', alumnoRoutes);
 app.use('/api/asistencias', asistenciasRoutes);
 app.use('/api/notas', notasRoutes);
 app.use('/api/preceptor', preceptorRoutes);
