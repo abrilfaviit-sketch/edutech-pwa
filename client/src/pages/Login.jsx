@@ -33,8 +33,6 @@ export default function Login({ onLoginSuccess }) {
       const token = respuesta.data.token || respuesta.data.jwt || respuesta.data.accessToken;
       const usuario = respuesta.data.usuario || respuesta.data.user || {};
 
-      // LOGS DE CONTROL
-      // console.log("DATOS DEL USUARIO:", usuario);
 
       if (!token) {
         throw new Error("El backend respondió bien pero no devolvió ningún token válido.");
@@ -47,8 +45,8 @@ export default function Login({ onLoginSuccess }) {
       //Mapeo de validación por perfil de la Base de Datos
       const esDirectivoBD = (rolBD === '4' || rolBD === 'directivo' || rolBD === 'directora');
       const esPreceptorBD = (rolBD === '2' || rolBD === 'preceptor');
-      const esProfesorBD = (rolBD === '3' || rolBD === 'profesor'); // 3 ES PROFESOR
-      const esAlumnoBD = (rolBD === '1' || rolBD === 'alumno');   // 1 ES ALUMNO
+      const esProfesorBD = (rolBD === '3' || rolBD === 'profesor');
+      const esAlumnoBD = (rolBD === '1' || rolBD === 'alumno');   
       let esRolValido = false;
 
       if (rolSolapa === 'directora' || rolSolapa === 'directivo') {
@@ -61,7 +59,7 @@ export default function Login({ onLoginSuccess }) {
         esRolValido = esAlumnoBD;
       }
 
-      // Si la solapa no coincide con el rol de la BD, rechazar acceso
+      // Si la solapa no coincide con el rol de la BD, rechaza acceso
       if (!esRolValido) {
         setMensaje({
           texto: `No podés ingresar como ${rolSeleccionado.toUpperCase()}. Tu perfil registrado no coincide.`,

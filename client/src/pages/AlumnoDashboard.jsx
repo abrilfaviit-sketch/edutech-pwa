@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Upload, CheckCircle, Clock, AlertCircle, LogOut, Loader2 } from 'lucide-react';
 import ModalEntrega from '../components/ModalEntrega';
-import api from '../services/api'; // Asegurate de ajustar la ruta a tu instancia de Axios
+import api from '../services/api'; 
 
 export default function AlumnoDashboard({ onLogout, onCerrarSesion }) {
   const handleSalir = () => {
@@ -14,7 +14,7 @@ export default function AlumnoDashboard({ onLogout, onCerrarSesion }) {
     }
   };
 
-  // Estados inicializados vacíos (sin hardcodeo)
+  // Estados inicializados vacíos 
   const [materias, setMaterias] = useState([]);
   const [tareas, setTareas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -22,15 +22,15 @@ export default function AlumnoDashboard({ onLogout, onCerrarSesion }) {
   const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
   const [notificacion, setNotificacion] = useState(false);
 
-  // Cargar materias y tareas reales desde Supabase vía Backend
+  // Cargar materias y tareas reales desde Supabase por Backend
   useEffect(() => {
     const cargarDatosDashboard = async () => {
       try {
         setCargando(true);
-        // Peticiones a tus endpoints reales
+        // Peticiones a endpoints
         const [resMaterias, resTareas] = await Promise.all([
-          api.get('/materias'), // o /alumnos/materias según tus rutas
-          api.get('/tareas')    // o /alumnos/tareas
+          api.get('/materias'), 
+          api.get('/tareas')   
         ]);
 
         setMaterias(resMaterias.data);
@@ -48,7 +48,7 @@ export default function AlumnoDashboard({ onLogout, onCerrarSesion }) {
   const handleGuardarEntrega = (datosEntrega) => {
     if (!datosEntrega) return;
 
-    // Actualizamos la lista local después de que el modal haya guardado en Supabase/Cloudinary
+    // Actualizamos la lista local después de que el modal haya guardado en Supabase
     setTareas((prevTareas) =>
       prevTareas.map((t) =>
         t.id === datosEntrega.tareaId ? { ...t, estado: 'entregado' } : t

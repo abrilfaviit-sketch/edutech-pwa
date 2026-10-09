@@ -9,7 +9,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       devOptions: {
-        enabled: true
+        enabled: true // Permite probar la PWA estando en localhost
       },
       manifest: {
         name: 'EduTech - Plataforma Educativa',
@@ -21,13 +21,15 @@ export default defineConfig({
         icons: [
           {
             src: '/pwa-192x192.png',
-            sizes: '96x92',
-            type: 'image/png'
+            sizes: '192x192', 
+            type: 'image/png',
+            purpose: 'any maskable' // Mejora para Android
           },
           {
             src: '/pwa-512x512.png',
-            sizes: '200x200',
+            sizes: '512x512', 
             type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }
