@@ -3,7 +3,7 @@ const { supabase } = require('../../config/supabase');
 // obtener dashboard
 const getDashboardCompleto = async (req, res) => {
   try {
-    const profesorId = req.user.id; // Obtenido desde authMiddleware
+    const profesorId = req.usuario.id;
 
     // Cargar materias dictadas por el docente
     const { data: materias, error: errorMaterias } = await supabase
@@ -55,7 +55,7 @@ const getDashboardCompleto = async (req, res) => {
   }
 };
 
-//registrar o actualizar asistencia
+// registrar o actualizar asistencia
 const registrarAsistencia = async (req, res) => {
   try {
     const { materiaId, alumnoId, estado, fecha } = req.body;
@@ -117,7 +117,7 @@ const crearTarea = async (req, res) => {
 // subir planificación
 const registrarPlanificacion = async (req, res) => {
   try {
-    const profesorId = req.user.id;
+    const profesorId = req.usuario.id;
     const { materiaId, periodo, descripcion, archivoNombre } = req.body;
 
     const { data, error } = await supabase

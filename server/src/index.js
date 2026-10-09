@@ -12,8 +12,9 @@ const profesorRoutes = require('./routes/profesorRoutes');
 
 const app = express();
 
+//soporta localhost y producción
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
 
@@ -29,5 +30,5 @@ app.use('/api/profesor', profesorRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
 });

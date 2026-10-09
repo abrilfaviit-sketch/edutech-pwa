@@ -2,12 +2,10 @@ const { supabase } = require('../../config/supabase');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Regitro de usuario
 const registrar = async (req, res) => {
   const { nombre, apellido, email, password, rol_id } = req.body;
 
   try {
-    // Verificar si el email ya existe
     const { data: existe } = await supabase
       .from('usuarios')
       .select('id')
@@ -20,34 +18,21 @@ const registrar = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Insertar nuevo usuario
     const { data: nuevoUsuario, error } = await supabase
       .from('usuarios')
-      .insert([
-        {
-          nombre,
-          apellido,
-          email,
-          password_hash: passwordHash,
-          rol_id
-        }
-      ])
+      .insert([{ nombre, apellido, email, password_hash: passwordHash, rol_id }])
       .select('id, nombre, apellido, email, rol_id')
       .single();
 
     if (error) throw error;
 
-    return res.status(201).json({
-      mensaje: 'Usuario registrado con éxito',
-      usuario: nuevoUsuario
-    });
+    return res.status(201).json({ mensaje: 'Usuario registrado con éxito', usuario: nuevoUsuario });
   } catch (error) {
     console.error('Error en registrar:', error.message);
     return res.status(500).json({ error: 'Error al registrar el usuario' });
   }
 };
 
-// Logion del usuario
 const login = async (req, res) => {
   const { email, usuario, password } = req.body;
   const identificador = email || usuario;
@@ -64,25 +49,20 @@ const login = async (req, res) => {
       .maybeSingle();
 
     if (error) throw error;
+    if (!usuarioEncontrado) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    if (!usuarioEncontrado) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    const hashGuardado = usuarioEncontrado.password_hash || usuarioEncontrado.password;
-
+    // usar el hash para más seguridad
+    const hashGuardado = usuarioEncontrado.password_hash;
     if (!hashGuardado) {
-      return res.status(500).json({ error: 'El usuario no posee una contraseña configurada' });
+      return res.status(500).json({ error: 'El usuario tiene un formato de contraseña antiguo o corrupto.' });
     }
 
     const passwordValida = await bcrypt.compare(password, hashGuardado);
-    if (!passwordValida) {
-      return res.status(401).json({ error: 'Contraseña incorrecta' });
-    }
+    if (!passwordValida) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
     const token = jwt.sign(
       { id: usuarioEncontrado.id, rol_id: usuarioEncontrado.rol_id },
-      process.env.JWT_SECRET || 'secreto_super_seguro',
+      process.env.JWT_SECRET,
       { expiresIn: '12h' }
     );
 
@@ -99,17 +79,13 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Error interno en login:', error.message);
-    return res.status(500).json({
-      error: 'Error interno en login',
-      detalle: error.message
-    });
+    return res.status(500).json({ error: 'Error interno en login', detalle: error.message });
   }
 };
 
-// verifica si la sesión esta activa
 const getPerfil = async (req, res) => {
   try {
-    const usuarioId = req.user.id;
+    const usuarioId = req.usuario.id; 
 
     const { data: usuario, error } = await supabase
       .from('usuarios')
@@ -117,9 +93,7 @@ const getPerfil = async (req, res) => {
       .eq('id', usuarioId)
       .single();
 
-    if (error || !usuario) {
-      return res.status(404).json({ error: 'Usuario no encontrado.' });
-    }
+    if (error || !usuario) return res.status(404).json({ error: 'Usuario no encontrado.' });
 
     return res.status(200).json({
       id: usuario.id,
@@ -134,8 +108,4 @@ const getPerfil = async (req, res) => {
   }
 };
 
-module.exports = {
-  registrar,
-  login,
-  getPerfil
-};
+module.exports = { registrar, login, getPerfil };

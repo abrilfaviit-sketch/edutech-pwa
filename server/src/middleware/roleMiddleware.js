@@ -1,7 +1,7 @@
 // Middleware para restringir el acceso según roles específicos
 const permitirRoles = (...rolesPermitidos) => {
   return (req, res, next) => {
-    // 1. Extraer el rol del token (soporta 'rol_id' o 'rol')
+    // 1. Extraer el rol del token ('rol_id' o 'rol')
     const rolUsuario = req.usuario?.rol_id ?? req.usuario?.rol;
 
     // 2. Verificar que exista información de rol en el usuario

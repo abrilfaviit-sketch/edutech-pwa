@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { permitirRoles } = require('../middleware/roleMiddleware');
 const { 
@@ -10,6 +11,9 @@ const {
   getMisTareas, 
   entregarTarea 
 } = require('../controllers/alumnoController');
+
+// Configuración de Multer para guardar el archivo en memoria temporalmente
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Proteger todas las rutas de alumnos con JWT
 router.use(authMiddleware);
@@ -23,5 +27,8 @@ router.get('/asistencias', getMisAsistencias);
 router.get('/calificaciones', getMisCalificaciones);
 router.get('/tareas', getMisTareas);
 router.post('/entregar-tarea', entregarTarea);
+
+// upload.single('archivo') intercepta el PDF/Imagen
+router.post('/entregar-tarea', upload.single('archivo'), entregarTarea);
 
 module.exports = router;

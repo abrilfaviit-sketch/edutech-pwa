@@ -25,7 +25,7 @@ const obtenerAlumnos = async (req, res) => {
 // Materias del alumno
 const getMisMaterias = async (req, res) => {
   try {
-    const alumnoId = req.user.id;
+    const alumnoId = req.usuario.id;
 
     const { data, error } = await supabase
       .from('inscripciones_alumnos')
@@ -45,7 +45,7 @@ const getMisMaterias = async (req, res) => {
 // Asistencias del alumno
 const getMisAsistencias = async (req, res) => {
   try {
-    const alumnoId = req.user.id;
+    const alumnoId = req.usuario.id;
     const { materiaId } = req.query;
 
     let query = supabase
@@ -70,7 +70,7 @@ const getMisAsistencias = async (req, res) => {
 // Calificaciones del alumno
 const getMisCalificaciones = async (req, res) => {
   try {
-    const alumnoId = req.user.id;
+    const alumnoId = req.usuario.id;
 
     const { data, error } = await supabase
       .from('calificaciones')
@@ -89,7 +89,7 @@ const getMisCalificaciones = async (req, res) => {
 // tareas pendientes o dadas
 const getMisTareas = async (req, res) => {
   try {
-    const alumnoId = req.user.id;
+    const alumnoId = req.usuario.id;
 
     const { data: inscripciones, error: errInsc } = await supabase
       .from('inscripciones_alumnos')
@@ -121,22 +121,37 @@ const getMisTareas = async (req, res) => {
 // Entrega de una tarea
 const entregarTarea = async (req, res) => {
   try {
-    const alumnoId = req.user.id;
-    const { tareaId, archivoUrl } = req.body;
+    const alumnoId = req.usuario.id;
+    const { tareaId, comentario } = req.body;
+    const archivo = req.file; // El archivo físico interceptado por multer
 
-    if (!tareaId) {
-      return res.status(400).json({ error: 'El ID de la tarea es obligatorio.' });
+    if (!tareaId || !archivo) {
+      return res.status(400).json({ error: 'El ID de la tarea y el archivo son obligatorios.' });
     }
 
+    // 1. Subir archivo a Supabase Storage (Bucket: 'archivos')
+    const fileName = `entregas/alumno_${alumnoId}_tarea_${tareaId}_${Date.now()}_${archivo.originalname}`;
+    const { error: uploadError } = await supabase.storage
+      .from('archivos')
+      .upload(fileName, archivo.buffer, { contentType: archivo.mimetype });
+
+    if (uploadError) throw uploadError;
+
+    // 2. Obtener la URL pública del archivo subido
+    const { data: publicUrlData } = supabase.storage.from('archivos').getPublicUrl(fileName);
+    const archivoUrl = publicUrlData.publicUrl;
+
+    // 3. Guardar en la base de datos
     const { data, error } = await supabase
       .from('entregas_tareas')
       .upsert(
-        {
-          tarea_id: tareaId,
-          alumno_id: alumnoId,
-          archivo_url: archivoUrl || null,
-          fecha_entrega: new Date().toISOString(),
-          estado: 'Entregado'
+        { 
+          tarea_id: tareaId, 
+          alumno_id: alumnoId, 
+          archivo_url: archivoUrl, // Guardamos el link real
+          comentario: comentario,
+          fecha_entrega: new Date().toISOString(), 
+          estado: 'Entregado' 
         },
         { onConflict: 'tarea_id, alumno_id' }
       )
@@ -146,7 +161,7 @@ const entregarTarea = async (req, res) => {
 
     return res.status(200).json({ mensaje: 'Tarea entregada con éxito', data: data[0] });
   } catch (error) {
-    console.error('Error al entregar tarea:', error.message);
+    console.error('Error al entregar tarea:', error);
     return res.status(500).json({ error: 'Error al registrar la entrega.' });
   }
 };

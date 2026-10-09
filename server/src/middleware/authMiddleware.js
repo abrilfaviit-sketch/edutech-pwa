@@ -1,13 +1,9 @@
 const jwt = require('jsonwebtoken');
 
-// Middleware para verificar que el usuario esté autenticado mediante JWT
-
- const authMiddleware = (req, res, next) => {
-  // Lee 'authorization' o 'Authorization' por compatibilidad de encabezados HTTP
+const authMiddleware = (req, res, next) => {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  // Si no hay token, denegar el acceso
   if (!token) {
     return res.status(401).json({ 
       exito: false, 
@@ -16,10 +12,18 @@ const jwt = require('jsonwebtoken');
   }
 
   try {
-    const secretKey = process.env.JWT_SECRET || 'secreto_super_seguro';
-    const verificado = jwt.verify(token, secretKey);
+    // Validar configuración del entorno
+    if (!process.env.JWT_SECRET) {
+      console.error('CRÍTICO: JWT_SECRET no está definido en .env');
+      return res.status(500).json({ 
+        exito: false, 
+        mensaje: 'Error interno de configuración en el servidor.' 
+      });
+    }
+
+    const verificado = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Inyecta el contenido decoded del token en el objeto req
+    // Inyecta el contenido decoded del token en req.usuario 
     req.usuario = verificado; 
     next();
   } catch (error) {
